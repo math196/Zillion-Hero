@@ -1,18 +1,20 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Idle Hero</title>
-  <script type="module" src="./src/main.js" defer></script>
-  <link rel="stylesheet" href="./src/style.css">
+  <title>Zillion Hero</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Idle Hero</h1>
+  <h1>Zillion Hero</h1>
   <div class="menu">
-    <button onclick="window.loadPainelHerois()">🧙 Heroes</button>
-    <button onclick="window.loadCombate()">⚔️ Battle</button>
+    <button onclick="loadPainelHerois()">🧙 Heróis</button>
+    <button onclick="loadCombate()">⚔️ Combate</button>
+    <button onclick="loadDungeon()">🏰 Dungeon</button>
+    <button onclick="loadPets()">🐾 Pets</button>
   </div>
   <div id="conteudo"></div>
+  
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
