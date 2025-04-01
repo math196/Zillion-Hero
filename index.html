@@ -1,20 +1,36 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Zillion Hero</title>
+  <title id="game-title">Zillion Hero</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Zillion Hero</h1>
-  <div class="menu">
-    <button onclick="loadPainelHerois()">🧙 Heróis</button>
-    <button onclick="loadCombate()">⚔️ Combate</button>
-    <button onclick="loadDungeon()">🏰 Dungeon</button>
-    <button onclick="loadPets()">🐾 Pets</button>
+  <div class="header">
+    <h1 id="header-title">Zillion Hero</h1>
+    <button class="lang-switch" onclick="toggleLanguage()">🌐 <span data-translate="language">Language</span></button>
   </div>
-  <div id="conteudo"></div>
   
+  <div class="menu">
+    <button data-translate="heroes" onclick="loadHeroes()">🧙 Heroes</button>
+    <button data-translate="combat" onclick="loadCombat()">⚔️ Combat</button>
+    <button data-translate="shop" onclick="loadShop()">🛒 Shop</button>
+  </div>
+  
+  <div id="content"></div>
+  
+  <div class="combat-status">
+    <div class="combat-progress">
+      <div class="combat-progress-bar" id="combat-progress"></div>
+    </div>
+    <p id="combat-stats">-</p>
+  </div>
+
+  <!-- Translation Files -->
+  <script src="lang/en.js"></script>
+  <script src="lang/pt.js"></script>
+  
+  <!-- Main Game Code -->
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

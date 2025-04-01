@@ -1,0 +1,73 @@
+body {
+  font-family: 'Courier New', monospace;
+  background: #111;
+  color: #0f0;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.menu {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 8px 15px;
+  background: #222;
+  border: 1px solid #0f0;
+  color: #0f0;
+  cursor: pointer;
+}
+
+.tab-bar {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.tab {
+  padding: 8px 15px;
+  background: #222;
+  border: none;
+  color: #0f0;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #0f0;
+  color: #000;
+}
+
+.card {
+  border: 1px solid #0f0;
+  padding: 15px;
+  margin: 10px 0;
+  background: #000;
+}
+
+.combat-progress {
+  height: 20px;
+  background: #333;
+  margin: 20px 0;
+}
+
+.combat-progress-bar {
+  height: 100%;
+  background: #0f0;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.area-card, .dungeon-card {
+  border: 1px dashed #0f0;
+  padding: 10px;
+  margin: 10px 0;
+}
