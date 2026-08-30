@@ -109,10 +109,6 @@ function describeEvents(events) {
         ? `Andar ${event.floor} concluído: +${reward.gold} ouro, +${reward.ore} minério, +${reward.crystals} cristais.`
         : `Floor ${event.floor} cleared: +${reward.gold} gold, +${reward.ore} ore, +${reward.crystals} crystals.`, "success");
       if (reward.loot?.item) addLog(`${t("log.loot")}: ${localizeEntity(reward.loot.item, "equipment", language()).name}.`, "loot");
-      if (event.floor === 5) {
-        addLog(t("combat.speedUnlocked", { speed: 2 }), "success");
-        showToast(t("combat.speedUnlocked", { speed: 2 }));
-      }
     } else if (event.type === "bossEntered") {
       const boss = BOSSES.find((candidate) => candidate.name === event.name);
       const copy = localizeEntity(boss, "boss", language());
@@ -120,6 +116,10 @@ function describeEvents(events) {
     } else if (event.type === "bossDefeated") {
       addLog(language() === "pt" ? `${localizeKnownName(event.name, language())} foi derrotado no andar ${event.floor}.` : `${event.name} was defeated on floor ${event.floor}.`, "success");
       if (event.floor === 10) {
+        addLog(t("combat.tutorialComplete"), "success");
+        addLog(t("combat.speedUnlocked", { speed: 2 }), "success");
+        showToast(t("combat.speedUnlocked", { speed: 2 }));
+      } else if (event.floor === 20) {
         addLog(t("combat.speedUnlocked", { speed: 3 }), "success");
         showToast(t("combat.speedUnlocked", { speed: 3 }));
       }
@@ -201,6 +201,7 @@ function renderCombat() {
   const survival = teamSurvivalStats(state);
   const partyHpPercent = survival.maxHp ? survival.hp / survival.maxHp * 100 : 0;
   const recovering = state.combat.recovering > 0;
+  const inTutorial = state.combat.floor <= 10;
   const selectedSpeed = currentCombatSpeed(state);
   const speedMarkup = COMBAT_SPEEDS.map((speed) => {
     const unlocked = isCombatSpeedUnlocked(state, speed);
@@ -246,6 +247,7 @@ function renderCombat() {
           <h3>${escapeHtml(localizeKnownName(enemy.name, language()))}</h3>
         </div>
         <div class="combat-status">
+          ${inTutorial ? `<span class="tag">${t("combat.tutorialFloor", { floor: state.combat.floor })}</span>` : ""}
           <span class="tag ${enemy.type === "boss" || recovering ? "danger-tag" : ""}">${recovering ? `${t("combat.regrouping")} ${state.combat.recovering.toFixed(1)}s` : state.combat.paused ? t("combat.paused") : `${t("combat.autoAtb")} · ${selectedSpeed}×`}</span>
           <div class="speed-control" role="group" aria-label="${escapeHtml(t("combat.speed"))}"><span class="micro-label">${t("combat.speed")}</span>${speedMarkup}</div>
           <small class="speed-unlock-hint">${escapeHtml(nextSpeedHint)}</small>
@@ -871,4 +873,3 @@ requestAnimationFrame(loop);
 setInterval(() => persist(), 10000);
 document.addEventListener("visibilitychange", () => { if (document.hidden) persist(); });
 window.addEventListener("beforeunload", () => persist());
-

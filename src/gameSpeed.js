@@ -2,8 +2,8 @@ export const COMBAT_SPEEDS = [1, 2, 3];
 
 export function isCombatSpeedUnlocked(state, speed) {
   if (speed === 1) return true;
-  if (speed === 2) return state.player.highestFloor >= 6 || state.player.bossesDefeated >= 1;
-  if (speed === 3) return state.player.bossesDefeated >= 1 || state.player.highestFloor >= 11;
+  if (speed === 2) return state.player.bossesDefeated >= 1 || state.player.highestFloor >= 11;
+  if (speed === 3) return state.player.bossesDefeated >= 2 || state.player.highestFloor >= 21;
   return false;
 }
 
@@ -30,4 +30,3 @@ export function scaledCombatElapsed(state, elapsedSeconds, { offline = false } =
   const elapsed = Math.max(0, Number(elapsedSeconds) || 0);
   return offline ? elapsed : elapsed * currentCombatSpeed(state);
 }
-

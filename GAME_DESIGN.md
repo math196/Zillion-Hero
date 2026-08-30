@@ -37,7 +37,8 @@ Se uma funcionalidade não melhora pelo menos uma dessas etapas, ela não tem pr
 ## Progressão e ritmo
 
 - Uma campanha começa com dois heróis modestos e apenas o necessário para entender a primeira batalha.
-- O primeiro andar apresenta ATB, dano e cura antes de abrir a coleção.
+- Os andares 1–10 formam um tutorial de aproximadamente 5 minutos: apresentam ATB, dano, cura, Invocação e fecham com o primeiro boss.
+- A Invocação é liberada ao concluir o andar 2; depois do andar 10, vida, hordas e recompensas começam a escalar.
 - Sistemas são liberados somente quando o jogador já entende o recurso que eles usam.
 - A formação começa com 2 espaços e cresce até 20; obter um herói não o adiciona automaticamente.
 - O primeiro boss deve exigir uma mudança observável de composição ou melhoria, sem exigir cliques repetitivos.
@@ -62,4 +63,3 @@ Antes de implementar algo novo, responder:
 5. Pets, craft, talentos e demais camadas.
 
 Quantidade de conteúdo nunca deve compensar um ciclo principal pouco claro.
-

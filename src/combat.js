@@ -4,18 +4,19 @@ import { BOSSES, ENEMY_ARCHETYPES, areaForFloor, bossForFloor, enemiesInFloor } 
 import { calculateHeroStats, calculateTeamDps, grantTeamXp } from "./heroes.js";
 import { HERO_BY_ID } from "./heroesData.js";
 
-const ATB_PER_SECOND = 25;
+const ATB_PER_SECOND = 40;
 const RECOVERY_SECONDS = 8;
 
 function hordeEnemyHp(floor, enemyNumber, archetype) {
-  const floorScale = Math.pow(1.19, Math.max(0, floor - 1));
+  const tutorialScale = 8.5 * Math.pow(1.1, Math.min(9, Math.max(0, floor - 1)));
+  const floorScale = floor <= 10 ? tutorialScale : tutorialScale * Math.pow(1.2, floor - 10);
   const waveScale = 1 + enemyNumber * 0.012;
-  return Math.floor(18 * floorScale * waveScale * archetype.hpMultiplier);
+  return Math.max(1, Math.floor(floorScale * waveScale * archetype.hpMultiplier));
 }
 
 function bossEnemyHp(floor, boss) {
-  const cycle = Math.max(0, Math.floor(floor / 10) - 1);
-  return Math.floor(boss.hp * Math.pow(1.48, cycle));
+  const tier = Math.max(1, Math.floor(floor / 10));
+  return Math.floor(750 * Math.pow(4, tier - 1));
 }
 
 export function ensureEnemy(state, random = Math.random) {
@@ -31,7 +32,7 @@ export function ensureEnemy(state, random = Math.random) {
       element: boss.element,
       hp: maxHp,
       maxHp,
-      attack: Math.floor(boss.attack * Math.pow(1.35, Math.max(0, floor / 10 - 1))),
+      attack: Math.floor(70 * Math.pow(1.75, Math.max(0, floor / 10 - 1))),
       attackSpeed: 84 + Math.min(30, floor),
       atb: 0,
       turns: 0,
@@ -54,7 +55,7 @@ export function ensureEnemy(state, random = Math.random) {
     element: archetype.element,
     hp: maxHp,
     maxHp,
-    attack: Math.floor((8 + floor * 3) * archetype.attackMultiplier),
+    attack: Math.floor((8 + Math.min(10, floor) * 0.8 + Math.max(0, floor - 10) * 2.2) * archetype.attackMultiplier),
     attackSpeed: 88 + floor * 0.7,
     atb: 25,
     turns: 0,
@@ -465,4 +466,3 @@ export function resetRunCombat(state) {
 export function getCurrentBoss(state) {
   return state.combat.phase === "boss" ? BOSSES.find((boss) => boss.id === state.combat.enemy?.id) : null;
 }
-

@@ -26,8 +26,8 @@ As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md):
 - Pity lendário garantido no 100º summon sem Legendary.
 - Duplicatas geram fragmentos, estrelas e podem melhorar os IVs existentes.
 - Buffs e debuffs cumulativos multiplicativos.
-- Combate automático em andares com hordas de 20 a 50 inimigos.
-- Velocidades 2× e 3× liberadas por progresso, sem aumentar ganhos offline.
+- Combate automático em andares com hordas de 20 a 50 inimigos; os 10 primeiros formam um tutorial de aproximadamente 5 minutos.
+- Depois do primeiro boss, vida, tamanho das hordas e recompensas passam a escalar; 2× libera no andar 10 e 3× no andar 20, sem aumentar ganhos offline.
 - Interface totalmente separada entre inglês e português; novas campanhas começam em inglês.
 - Batalha textual ATB com HP, turno, estado e última ação de cada herói.
 - IA por função: DPS ataca, Tank protege, Healer cura/revive, Support fortalece e Controller enfraquece.
@@ -52,8 +52,8 @@ As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md):
 Uma campanha nova começa apenas com Expedição e Perfil. O restante aparece quando passa a ser útil:
 
 1. Heróis: concluir o andar 1.
-2. Mineração: alcançar o andar 3.
-3. Summon: alcançar o andar 5, com 10 Cristais de introdução.
+2. Summon: concluir o andar 2, com 10 Cristais de introdução.
+3. Mineração: concluir o andar 3.
 4. Mercado: alcançar o andar 7.
 5. Dungeons: derrotar o boss do andar 10.
 6. Pets: concluir a primeira dungeon.
@@ -133,4 +133,3 @@ O GitHub Pages hospeda somente os arquivos estáticos. Saves, configurações e 
 ## Licença
 
 MIT. Consulte [LICENSE](LICENSE).
-

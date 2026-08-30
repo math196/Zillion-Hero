@@ -2,8 +2,8 @@ export const SYSTEM_UNLOCKS = [
   { id: "combat", requirementKey: "unlock.combat.requirement", unlocked: () => true },
   { id: "profile", requirementKey: "unlock.profile.requirement", unlocked: () => true },
   { id: "heroes", requirementKey: "unlock.heroes.requirement", unlocked: (state) => state.player.highestFloor >= 2 },
-  { id: "mining", requirementKey: "unlock.mining.requirement", unlocked: (state) => state.player.highestFloor >= 3 },
-  { id: "summon", requirementKey: "unlock.summon.requirement", reward: { crystals: 10 }, unlocked: (state) => state.player.highestFloor >= 5 },
+  { id: "summon", requirementKey: "unlock.summon.requirement", reward: { crystals: 10 }, unlocked: (state) => state.player.highestFloor >= 3 },
+  { id: "mining", requirementKey: "unlock.mining.requirement", unlocked: (state) => state.player.highestFloor >= 4 },
   { id: "shop", requirementKey: "unlock.shop.requirement", unlocked: (state) => state.player.highestFloor >= 7 },
   { id: "dungeons", requirementKey: "unlock.dungeons.requirement", reward: { crystals: 5 }, unlocked: (state) => state.player.bossesDefeated >= 1 || state.player.highestFloor >= 11 },
   { id: "pets", requirementKey: "unlock.pets.requirement", reward: { crystals: 30 }, unlocked: (state) => Object.values(state.dungeons.records ?? {}).some((floor) => Number(floor) >= 1) },
@@ -104,4 +104,3 @@ export function reopenTutorial(state) {
 export function clearUnlockNotice(state) {
   state.progression.tutorial.notice = null;
 }
-

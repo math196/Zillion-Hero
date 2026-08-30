@@ -65,13 +65,17 @@ test("every static interface translation used by the main screen exists in both 
 
 test("systems unlock gradually and milestone rewards are only granted once", () => {
   const state = createInitialState();
-  state.player.highestFloor = 5;
+  state.player.highestFloor = 3;
   const unlocked = syncProgression(state).map((system) => system.id);
-  assert.deepEqual(unlocked, ["heroes", "mining", "summon"]);
+  assert.deepEqual(unlocked, ["heroes", "summon"]);
   assert.equal(state.resources.crystals, 10);
-  assert.equal(activeTeamLimit(state), 3);
+  assert.equal(activeTeamLimit(state), 2);
   syncProgression(state);
   assert.equal(state.resources.crystals, 10);
+
+  state.player.highestFloor = 4;
+  assert.deepEqual(syncProgression(state).map((system) => system.id), ["mining"]);
+  assert.equal(activeTeamLimit(state), 3);
 
   state.player.bossesDefeated = 1;
   assert.deepEqual(syncProgression(state).map((system) => system.id), ["dungeons"]);
@@ -146,23 +150,45 @@ test("every normal floor contains 20 to 50 enemies", () => {
   }
 });
 
-test("the first floor progresses quickly while enemies still fight back", () => {
+test("the first floor is quick and shows the automatic battle", () => {
   const state = createInitialState();
   let elapsed = 0;
-  let enemyActions = 0;
-  let heals = 0;
+  let heroActions = 0;
 
   while (state.combat.floor === 1 && elapsed < 180) {
     const events = tickCombat(state, 0.5, () => 0.5);
-    enemyActions += events.filter((event) => event.type === "enemyAction").length;
-    heals += events.filter((event) => event.type === "heal").length;
+    heroActions += events.filter((event) => event.type === "heroAction").length;
     elapsed += 0.5;
   }
 
   assert.equal(state.combat.floor, 2);
-  assert.ok(elapsed >= 45 && elapsed <= 120, `first floor took ${elapsed}s`);
-  assert.ok(enemyActions > 0, "enemies must act before the floor is cleared");
-  assert.ok(heals > 0, "the healer must have a reason to act during the floor");
+  assert.ok(elapsed >= 15 && elapsed <= 45, `first floor took ${elapsed}s`);
+  assert.ok(heroActions > 0, "heroes must visibly act before the floor is cleared");
+});
+
+test("the first ten floors form a roughly five-minute tutorial before scaling", () => {
+  const state = createInitialState();
+  let elapsed = 0;
+  let enemyActions = 0;
+  let heals = 0;
+  let bossSkills = 0;
+
+  while (state.combat.floor <= 10 && elapsed < 600) {
+    const events = tickCombat(state, 0.25, () => 0.5);
+    enemyActions += events.filter((event) => event.type === "enemyAction").length;
+    heals += events.filter((event) => event.type === "heal").length;
+    bossSkills += events.filter((event) => event.type === "bossSkill").length;
+    elapsed += 0.25;
+  }
+
+  assert.equal(state.combat.floor, 11);
+  assert.ok(elapsed >= 240 && elapsed <= 360, `tutorial took ${elapsed}s`);
+  assert.ok(enemyActions > 0, "enemies must act during the tutorial");
+  assert.ok(heals > 0, "the healer must visibly contribute during the tutorial");
+  assert.ok(bossSkills > 0, "the tutorial boss must use its special ability");
+  assert.equal(state.player.bossesDefeated, 1);
+  assert.equal(enemiesInFloor(10), 20);
+  assert.ok(enemiesInFloor(11) > enemiesInFloor(10));
 });
 
 test("combat speed unlocks through progress and never accelerates offline time", () => {
@@ -171,13 +197,14 @@ test("combat speed unlocks through progress and never accelerates offline time",
   assert.equal(isCombatSpeedUnlocked(state, 2), false);
   assert.equal(setCombatSpeed(state, 2).reason, "locked");
 
-  state.player.highestFloor = 6;
+  state.player.bossesDefeated = 1;
   assert.equal(isCombatSpeedUnlocked(state, 2), true);
   assert.equal(setCombatSpeed(state, 2).ok, true);
   assert.equal(scaledCombatElapsed(state, 0.5), 1);
   assert.equal(scaledCombatElapsed(state, 30, { offline: true }), 30);
 
-  state.player.bossesDefeated = 1;
+  assert.equal(isCombatSpeedUnlocked(state, 3), false);
+  state.player.bossesDefeated = 2;
   assert.equal(isCombatSpeedUnlocked(state, 3), true);
   assert.equal(setCombatSpeed(state, 3).ok, true);
   assert.equal(scaledCombatElapsed(state, 0.5), 1.5);
@@ -268,4 +295,3 @@ test("dungeon and mining loops produce offline rewards", () => {
   assert.equal(collectOre(state), mined);
   assert.equal(state.resources.ore, mined);
 });
-
