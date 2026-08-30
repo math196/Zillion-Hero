@@ -1,71 +1,110 @@
-# Zillion-Hero
-# ⚔️ Zillion Hero
+# Zillion Hero
 
-Zillion Hero is a minimalist idle RPG where you collect heroes, level up, fight endless waves of enemies, and discover synergies — all in a text-based interface inspired by classics like Trimps and Idle Ant Farm.
+Zillion Hero é um RPG idle single-player, totalmente textual, inspirado na progressão automática de jogos como *7 Knights Idle* e na clareza de interfaces como *Trimps*. Não há sprites, multiplayer, compras reais ou backend: todo o jogo funciona no navegador e o progresso pertence ao jogador.
 
-> 🧠 Designed to be simple to play, but with deep progression systems — with **no images**, just pure data-driven strategy.
+## Jogar
 
----
+[Abrir Zillion Hero no GitHub Pages](https://math196.github.io/Zillion-Hero/)
 
-## 🚀 Play now
+## Marco atual — Fases 2, 3 e base da Fase 4
 
-👉 [Play Zillion Hero Online](https://math196.github.io/Zillion-Hero/)
+- Catálogo com **200 heróis únicos**:
+  - 100 Common
+  - 60 Rare
+  - 30 Epic
+  - 10 Legendary
+- Coleção sem limite de capacidade.
+- Formação ativa de até 20 heróis.
+- Cinco funções: DPS, Tank, Healer, Support e Controller.
+- Oito elementos e sinergias de formação.
+- Fichas completas com aparência textual, atributos, habilidade, cooldown e efeitos.
+- IVs individuais de 90% a 110%.
+- Summon de heróis: Common 60%, Rare 30%, Epic 8%, Legendary 2%.
+- Pity lendário garantido no 100º summon sem Legendary.
+- Duplicatas geram fragmentos, estrelas e podem melhorar os IVs existentes.
+- Buffs e debuffs cumulativos multiplicativos.
+- Combate automático em andares com hordas de 20 a 50 inimigos.
+- Boss a cada 10 andares, com fala e habilidades próprias.
+- Dungeons paralelas com cristais, tokens e progressão por andar.
+- XP e level-up para heróis e jogador.
+- Equipamentos de 1 a 5 estrelas, com passiva em 5 estrelas.
+- Loja rotativa, upgrades, craft e summon de equipamentos.
+- Mineração idle com depósito e progresso offline.
+- Base funcional de pets, fusão, habilidade ativa e passiva.
+- Rebirth a partir do andar 50, concedendo Essência permanente.
+- Save automático, exportação/importação JSON e novo jogo.
+- Interface em português e inglês.
+- Navegação por teclado, layout responsivo e redução de movimento.
 
----
+### Regra dos buffs
 
-## 🎮 Features
+Todos os efeitos percentuais são multiplicativos em cadeia. Eles nunca são somados diretamente.
 
-- ⚔️ **Idle Combat**: Automatic battles against infinite enemies
-- 🧙 **Hero Collection**: Summon characters with rarity, IV, and star upgrades
-- 🌟 **Progression**: Level up heroes and the player, increase stats and DPS
-- 🔁 **Prestige** system, world reset (soon)
-- 🧾 **Gacha system**, equipment, and economy (planned)
-- 📦 **Save/Load**, **Export/Import**, **Cloud Save** (coming soon)
+```text
+5% de crítico × 1,50 = 7,5%
+7,5% × 1,50 = 11,25%
+```
 
----
+Essa regra vale para ataque, defesa, HP, crítico, dano crítico, recuperação, velocidade e demais modificadores percentuais.
 
-## 💾 How to use
+## Estrutura
 
-- **Save**: Your progress is saved automatically in the browser.
-- **Export**: Click `📤 Export Save` to download your progress.
-- **Import**: Click `📥 Import Save` and select your `.json` file.
-- **Reset**: Use `🧼 New Game` (with confirmation) to reset everything.
+```text
+index.html                 Interface principal
+style.css                  Tema terminal e layout responsivo
+src/
+  main.js                  Roteamento, renderização e loop principal
+  heroesData.js            Dados dos 200 heróis
+  heroes.js                Coleção, IVs, equipe, DPS e summon
+  buffs.js                 Efeitos multiplicativos
+  combat.js                Hordas, andares, bosses e recompensas
+  gameData.js              Inimigos, equipamentos, dungeons e pets
+  dungeons.js              Progressão paralela e cristais
+  equipment.js             Loot, estrelas e equipamento de heróis
+  mining.js                Produção idle de minério
+  pets.js                  Gacha e fusão de pets
+  shop.js                  Loja, craft e upgrades
+  rebirth.js               Reset da run e Essência
+  save.js                  LocalStorage, exportação e importação
+  state.js                 Estado inicial e migração de saves
+  i18n.js                  Português e inglês
+tests/
+  game.test.js             Regras críticas do jogo
+```
 
----
+## Executar localmente
 
-## 📦 Tech Stack
+Como o projeto usa módulos JavaScript, execute um servidor estático na pasta do projeto:
 
-- HTML, CSS, JavaScript (Vanilla)
-- Modular codebase (no frameworks)
-- GitHub Pages for free hosting
+```bash
+python -m http.server 4173
+```
 
----
+Depois abra `http://localhost:4173`.
 
-## 👨‍💻 Dev Notes
+## Testes
 
-This project was built from scratch by [@math196](https://github.com/math196) with a focus on:
-- Learning modern JS
-- Building a fully modular idle engine
-- Practicing game logic, state handling, and data design
+Requer Node.js 20 ou mais recente:
 
-Feel free to fork, play, and contribute!
+```bash
+npm test
+```
 
----
+Os testes verificam o catálogo de 200 heróis, distribuição de raridades, buffs multiplicativos, pity, limite da formação, quantidade das hordas, bosses e produção offline.
 
-## 📌 Roadmap Highlights
+## Salvamento e privacidade
 
-- ✅ Idle Battle Core
-- ✅ Player and Hero Leveling
-- ✅ Save/Export/Import System
-- 🧠 Talent Tree (Path of Exile-style)
-- 🧬 Pets and Special Skills
-- 🏆 Achievements with Passive Bonuses
-- 🧭 Exploration and Resource Gathering
-- 🌐 Cloud Sync (via GitHub or custom API)
+O GitHub Pages hospeda somente os arquivos estáticos. Saves, configurações e estatísticas ficam no `localStorage` do navegador. A exportação JSON permite que o próprio jogador faça backup ou transfira o progresso.
 
----
+## Próximos marcos
 
-## 📃 License
+1. Ampliar o catálogo de pets e suas sinergias.
+2. Adicionar talentos específicos para cada função.
+3. Expandir craft, encantamentos e materiais.
+4. Criar missões, conquistas e eventos locais.
+5. Adicionar laboratório de builds e histórico de runs.
 
-MIT — Free to modify, use, and distribute.
+## Licença
+
+MIT. Consulte [LICENSE](LICENSE).
 

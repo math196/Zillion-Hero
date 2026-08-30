@@ -1,36 +1,108 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title id="game-title">Zillion Hero</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="header">
-    <h1 id="header-title">Zillion Hero</h1>
-    <button class="lang-switch" onclick="toggleLanguage()">🌐 <span data-translate="language">Language</span></button>
-  </div>
-  
-  <div class="menu">
-    <button data-translate="heroes" onclick="loadHeroes()">🧙 Heroes</button>
-    <button data-translate="combat" onclick="loadCombat()">⚔️ Combat</button>
-    <button data-translate="shop" onclick="loadShop()">🛒 Shop</button>
-  </div>
-  
-  <div id="content"></div>
-  
-  <div class="combat-status">
-    <div class="combat-progress">
-      <div class="combat-progress-bar" id="combat-progress"></div>
-    </div>
-    <p id="combat-stats">-</p>
-  </div>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Zillion Hero: um RPG idle textual sobre heróis, expedições e progressão infinita."
+    />
+    <meta name="theme-color" content="#0d0f0e" />
+    <title>Zillion Hero // Idle RPG textual</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#game-view" data-i18n="a11y.skip">Pular para o jogo</a>
 
-  <!-- Translation Files -->
-  <script src="lang/en.js"></script>
-  <script src="lang/pt.js"></script>
-  
-  <!-- Main Game Code -->
-  <script type="module" src="src/main.js"></script>
-</body>
+    <div class="game-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" data-i18n="shell.eyebrow">SIMULAÇÃO IDLE // SESSÃO LOCAL</p>
+          <h1>ZILLION HERO</h1>
+        </div>
+        <div class="session-status" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="save-status" data-i18n="status.ready">PRONTO</span>
+        </div>
+      </header>
+
+      <section class="resource-strip" aria-label="Recursos">
+        <div><span data-i18n="resource.gold">OURO</span><strong id="stat-gold">0</strong></div>
+        <div><span data-i18n="resource.crystals">CRISTAIS</span><strong id="stat-crystals">0</strong></div>
+        <div><span data-i18n="resource.ore">MINÉRIO</span><strong id="stat-ore">0</strong></div>
+        <div><span data-i18n="resource.essence">ESSÊNCIA</span><strong id="stat-essence">0</strong></div>
+        <div><span>DPS</span><strong id="stat-dps">0</strong></div>
+        <div><span data-i18n="resource.zone">ZONA</span><strong id="stat-zone">1-1</strong></div>
+      </section>
+
+      <div class="workspace">
+        <nav class="primary-nav" aria-label="Seções do jogo">
+          <p class="panel-label" data-i18n="nav.command">COMANDO</p>
+          <button class="nav-button active" type="button" data-view="combat">
+            <span>[01]</span> <b data-i18n="nav.expedition">EXPEDIÇÃO</b>
+          </button>
+          <button class="nav-button" type="button" data-view="heroes">
+            <span>[02]</span> <b data-i18n="nav.heroes">HERÓIS</b>
+          </button>
+          <button class="nav-button" type="button" data-view="dungeons">
+            <span>[03]</span> <b data-i18n="nav.dungeons">DUNGEONS</b>
+          </button>
+          <button class="nav-button" type="button" data-view="mining">
+            <span>[04]</span> <b data-i18n="nav.mining">MINERAÇÃO</b>
+          </button>
+          <button class="nav-button" type="button" data-view="summon">
+            <span>[05]</span> <b data-i18n="nav.summon">SUMMON</b>
+          </button>
+          <button class="nav-button" type="button" data-view="shop">
+            <span>[06]</span> <b data-i18n="nav.market">MERCADO</b>
+          </button>
+          <button class="nav-button" type="button" data-view="pets">
+            <span>[07]</span> <b data-i18n="nav.pets">PETS</b>
+          </button>
+          <button class="nav-button" type="button" data-view="profile">
+            <span>[08]</span> <b data-i18n="nav.profile">PERFIL</b>
+          </button>
+          <button class="nav-button" type="button" data-view="legacy">
+            <span>[09]</span> <b data-i18n="nav.legacy">LEGADO</b>
+          </button>
+
+          <div class="nav-hint">
+            <span data-i18n="nav.shortcuts">ATALHOS</span>
+            <p data-i18n="nav.keys">1–9 navegar</p>
+            <p data-i18n="nav.pauseKey">Espaço pausar</p>
+          </div>
+        </nav>
+
+        <main id="game-view" class="game-view" tabindex="-1">
+          <noscript>O jogo precisa de JavaScript para executar a simulação.</noscript>
+        </main>
+
+        <aside class="event-panel" aria-label="Registro da expedição">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-label" data-i18n="log.signal">SINAL DA EQUIPE</p>
+              <h2 data-i18n="log.title">REGISTRO</h2>
+            </div>
+            <button id="clear-log" class="text-button" type="button" data-i18n="action.clear">LIMPAR</button>
+          </div>
+          <ol id="event-log" class="event-log" aria-live="polite"></ol>
+        </aside>
+      </div>
+
+      <footer class="utility-bar">
+        <p data-i18n="footer.local">Todo o progresso fica neste navegador.</p>
+        <div>
+          <button id="language-button" class="text-button" type="button">ENGLISH</button>
+          <button id="save-button" class="text-button" type="button" data-i18n="action.save">SALVAR</button>
+          <button id="export-button" class="text-button" type="button" data-i18n="action.export">EXPORTAR</button>
+          <button id="import-button" class="text-button" type="button" data-i18n="action.import">IMPORTAR</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden />
+        </div>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="src/main.js"></script>
+  </body>
 </html>
+
