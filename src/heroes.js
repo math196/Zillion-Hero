@@ -46,6 +46,21 @@ export function getHeroInstance(state, heroId) {
   return state.collection[String(heroId)] ?? state.collection[heroId] ?? null;
 }
 
+export function isPassiveUnlocked(instance, hero) {
+  return Boolean(instance && hero?.passive && instance.stars >= (hero.passive.unlockedAtStars ?? 5));
+}
+
+export function getTeamPassiveEffects(state) {
+  return state.activeTeam.flatMap((heroId) => {
+    const hero = HERO_BY_ID.get(Number(heroId));
+    const instance = getHeroInstance(state, heroId);
+    if (!isPassiveUnlocked(instance, hero)) return [];
+    return hero.passive.effects
+      .filter((effect) => effect.target === "team")
+      .map((effect) => ({ ...effect, sourceId: `passive-${heroId}`, remaining: Infinity }));
+  });
+}
+
 export function calculateHeroStats(state, heroId, effects = []) {
   const hero = HERO_BY_ID.get(Number(heroId));
   const instance = getHeroInstance(state, heroId);
@@ -73,13 +88,18 @@ export function calculateHeroStats(state, heroId, effects = []) {
     }
   }
 
+  const selfPassiveEffects = isPassiveUnlocked(instance, hero)
+    ? hero.passive.effects.filter((effect) => effect.target === "self").map((effect) => ({ ...effect, remaining: Infinity }))
+    : [];
+  const statsWithPassive = applyEffects(baseStats, selfPassiveEffects, "self");
+
   const trainingLevel = state.shop.upgrades.training ?? 0;
   const essenceMultiplier = 1 + state.resources.essence * 0.03;
   const progressionEffects = [
     { stat: "attack", multiplier: 1 + trainingLevel * 0.12, target: "team", remaining: Infinity },
     { stat: "attack", multiplier: essenceMultiplier, target: "team", remaining: Infinity },
   ];
-  return applyEffects(baseStats, [...progressionEffects, ...effects], "team");
+  return applyEffects(statsWithPassive, [...progressionEffects, ...getTeamPassiveEffects(state), ...effects], "team");
 }
 
 export function calculateHeroDps(state, heroId, effects = []) {

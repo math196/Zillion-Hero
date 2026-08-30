@@ -10,6 +10,7 @@ import {
   calculateHeroDps,
   calculateTeamDps,
   getHeroInstance,
+  isPassiveUnlocked,
   ivScore,
   ownedHeroes,
   summonHero,
@@ -115,7 +116,7 @@ function describeEvents(events) {
     } else if (event.type === "skill") {
       addLog(`${event.hero}: ${event.ability}.`, "skill");
     } else if (event.type === "heroAction") {
-      addLog(`${event.actor} → ${event.action} → ${event.target}: ${formatNumber(event.amount)}${event.critical ? " CRIT" : ""}.`, event.action === "Attack" ? "info" : "skill");
+      addLog(`${event.actor} → ${event.action} → ${event.target}: ${formatNumber(event.amount)}${event.critical ? " CRIT" : ""}.`, event.kind === "special" ? "skill" : "info");
     } else if (event.type === "enemyAction") {
       addLog(`${event.actor} → ${event.action} → ${event.target}: -${formatNumber(event.amount)} HP${event.ko ? " · KO" : ""}.`, "danger");
     } else if (event.type === "heal") {
@@ -180,14 +181,23 @@ function renderCombat() {
   const effectMarkup = state.combat.activeEffects.length
     ? state.combat.activeEffects.slice(0, 10).map((effect) => `<span class="effect-chip ${effect.target}">${escapeHtml(effect.stat)} ${formatEffectPercent(effect.multiplier)} · ${Math.ceil(effect.remaining)}s</span>`).join("")
     : `<span class="empty-inline">${language() === "pt" ? "Nenhum efeito temporário." : "No temporary effects."}</span>`;
-  const partyMarkup = party.map(({ hero, battle }) => {
+  const partyMarkup = party.map(({ heroId, hero, battle }) => {
     const hpPercent = battle.maxHp ? battle.hp / battle.maxHp * 100 : 0;
     const status = battle.hp <= 0 ? "KO" : battle.guard > 0 ? (language() === "pt" ? "GUARDA" : "GUARD") : battle.atb >= 100 ? (language() === "pt" ? "AGINDO" : "ACTING") : "ATB";
+    const instance = getHeroInstance(state, heroId);
+    const passiveActive = isPassiveUnlocked(instance, hero);
+    const cooldown = Math.ceil(instance.cooldownRemaining ?? 0);
     return `<article class="party-member role-${hero.role} ${battle.hp <= 0 ? "ko" : ""}">
       <div class="party-member-head"><strong>${escapeHtml(hero.name)}</strong><span>${hero.role.toUpperCase()} · ${status}</span></div>
       <div class="unit-meter"><span>HP</span><div class="meter hp"><i style="width:${percent(hpPercent)}"></i></div><b>${formatNumber(battle.hp)} / ${formatNumber(battle.maxHp)}</b></div>
       <div class="unit-meter"><span>ATB</span><div class="meter atb"><i style="width:${percent(battle.atb)}"></i></div><b>${Math.floor(Math.min(100, battle.atb))}%</b></div>
       <p>${language() === "pt" ? "ÚLTIMA AÇÃO" : "LAST ACTION"}: ${escapeHtml(battle.lastAction)}</p>
+      <details class="party-kit" ${party.length <= 4 ? "open" : ""}>
+        <summary>${language() === "pt" ? "ATAQUE · ESPECIAL · PASSIVA" : "ATTACK · SPECIAL · PASSIVE"}</summary>
+        <div class="kit-entry"><span>${language() === "pt" ? "ATAQUE" : "ATTACK"}</span><strong>${escapeHtml(hero.basicAttack.name)}</strong><small>${escapeHtml(hero.basicAttack.description)} · ${(hero.basicAttack.coefficient * 100).toFixed(0)}% ATK</small></div>
+        <div class="kit-entry special"><span>${language() === "pt" ? "ESPECIAL" : "SPECIAL"}</span><strong>${escapeHtml(hero.special.name)}</strong><small>${escapeHtml(hero.special.description)} · CD ${hero.special.cooldown}s${cooldown > 0 ? ` · ${cooldown}s ${language() === "pt" ? "restantes" : "remaining"}` : ` · ${language() === "pt" ? "PRONTO" : "READY"}`}</small></div>
+        <div class="kit-entry passive ${passiveActive ? "active" : "locked"}"><span>${language() === "pt" ? "PASSIVA" : "PASSIVE"}</span><strong>${escapeHtml(hero.passive.name)}</strong><small>${escapeHtml(hero.passive.description)} · ${passiveActive ? (language() === "pt" ? "ATIVA" : "ACTIVE") : `${language() === "pt" ? "LIBERA EM" : "UNLOCKS AT"} 5★`}</small></div>
+      </details>
     </article>`;
   }).join("");
 
@@ -274,7 +284,11 @@ function heroCard(hero) {
       <details>
         <summary>${t("heroes.details")}</summary>
         <p>${escapeHtml(hero.appearance)}</p>
-        <p><strong>${escapeHtml(hero.ability.name)}</strong><br>${escapeHtml(hero.ability.description)}</p>
+        <div class="hero-kit">
+          <p><span class="micro-label">${language() === "pt" ? "ATAQUE BÁSICO" : "BASIC ATTACK"}</span><strong>${escapeHtml(hero.basicAttack.name)}</strong><br>${escapeHtml(hero.basicAttack.description)} · ${(hero.basicAttack.coefficient * 100).toFixed(0)}% ATK</p>
+          <p><span class="micro-label">${language() === "pt" ? "ESPECIAL" : "SPECIAL"}</span><strong>${escapeHtml(hero.special.name)}</strong><br>${escapeHtml(hero.special.description)} · CD ${hero.special.cooldown}s</p>
+          <p class="${instance && isPassiveUnlocked(instance, hero) ? "passive-active" : "passive-locked"}"><span class="micro-label">${language() === "pt" ? "PASSIVA" : "PASSIVE"} · ${instance && isPassiveUnlocked(instance, hero) ? (language() === "pt" ? "ATIVA" : "ACTIVE") : `${language() === "pt" ? "LIBERA EM" : "UNLOCKS AT"} 5★`}</span><strong>${escapeHtml(hero.passive.name)}</strong><br>${escapeHtml(hero.passive.description)}</p>
+        </div>
         ${equipmentControl}
       </details>
     </article>`;
@@ -562,7 +576,7 @@ function renderHelpDialog() {
   elements.help.innerHTML = `
     <div class="help-heading"><div><p class="panel-label">${pt ? "MANUAL DO COMANDANTE" : "COMMANDER MANUAL"}</p><h2 id="help-title">${pt ? "COMO O JOGO FUNCIONA" : "HOW THE GAME WORKS"}</h2></div><button class="text-button" type="button" data-help-close>${t("action.close")}</button></div>
     <section class="help-section"><h3>${pt ? "O CICLO PRINCIPAL" : "THE CORE LOOP"}</h3><p>${pt ? "Sua formação ataca automaticamente. Derrote a horda, receba ouro e XP, avance de andar e prepare-se para um boss a cada 10 andares. O jogo calcula até 12 horas de progresso quando você volta." : "Your formation attacks automatically. Defeat the horde, earn gold and XP, advance floors, and face a boss every 10 floors. The game calculates up to 12 hours of progress when you return."}</p></section>
-    <section class="help-section"><h3>${pt ? "BATALHA ATB" : "ATB BATTLE"}</h3><p>${pt ? "A barra ATB enche conforme a Velocidade de Ataque. Em 100%, o herói age: DPS prioriza dano, Healer cura o aliado mais ferido e revive, Tank entra em Guarda e atrai golpes, Support fortalece a equipe e Controller enfraquece o inimigo. HP zero causa KO; se todos caírem, a equipe reagrupa e tenta novamente. Ataque Coordenado e Primeiros Socorros são comandos manuais com recarga." : "The ATB gauge fills according to Attack Speed. At 100%, the hero acts: DPS prioritizes damage, Healers restore the most wounded ally and revive, Tanks Guard and draw attacks, Supports empower the party, and Controllers weaken enemies. Zero HP causes KO; if everyone falls, the party regroups and retries. Focus Attack and First Aid are manual commands with cooldowns."}</p></section>
+    <section class="help-section"><h3>${pt ? "BATALHA ATB" : "ATB BATTLE"}</h3><p>${pt ? "A barra ATB enche conforme a Velocidade de Ataque. Em 100%, o herói usa seu Ataque Básico ou seu Especial quando o cooldown permite. DPS prioriza dano, Healer cura e revive, Tank entra em Guarda, Support fortalece e Controller enfraquece. A Passiva entra no cálculo ao alcançar 5★. HP zero causa KO; se todos caírem, a equipe reagrupa e tenta novamente." : "The ATB gauge fills according to Attack Speed. At 100%, the hero uses their Basic Attack or their Special when its cooldown allows. DPS prioritizes damage, Healers restore and revive, Tanks Guard, Supports empower, and Controllers weaken. The Passive enters calculations at 5★. Zero HP causes KO; if everyone falls, the party regroups and retries."}</p></section>
     <section class="help-grid">
       <article><strong>${pt ? "OURO" : "GOLD"}</strong><p>${pt ? "Compra melhorias e equipamentos no Mercado." : "Buys upgrades and equipment in the Market."}</p></article>
       <article><strong>${pt ? "CRISTAIS" : "CRYSTALS"}</strong><p>${pt ? "Invocam heróis e pets. Vêm de marcos e dungeons." : "Summon heroes and pets. Earned from milestones and dungeons."}</p></article>

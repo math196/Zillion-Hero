@@ -19,7 +19,8 @@ As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md):
 - Formação ativa que começa com 2 espaços e cresce a cada 3 andares, até 20 heróis.
 - Cinco funções: DPS, Tank, Healer, Support e Controller.
 - Oito elementos e sinergias de formação.
-- Fichas completas com aparência textual, atributos, habilidade, cooldown e efeitos.
+- Fichas completas com aparência textual, atributos e kit exclusivo de Ataque Básico, Especial e Passiva.
+- Especiais usam cooldown no ATB; Passivas entram no cálculo ao alcançar 5 estrelas.
 - IVs individuais de 90% a 110%.
 - Summon de heróis: Common 60%, Rare 30%, Epic 8%, Legendary 2%.
 - Pity lendário garantido no 100º summon sem Legendary.
@@ -77,8 +78,8 @@ style.css                  Tema terminal e layout responsivo
 src/
   main.js                  Roteamento, renderização e loop principal
   progression.js           Tutorial, marcos, recompensas e desbloqueios
-  heroesData.js            Dados dos 200 heróis
-  heroes.js                Coleção, IVs, equipe, DPS e summon
+  heroesData.js            Dados e kits dos 200 heróis
+  heroes.js                Coleção, IVs, equipe, passivas, DPS e summon
   buffs.js                 Efeitos multiplicativos
   combat.js                ATB, HP individual, IA por função, hordas, bosses e recompensas
   gameData.js              Inimigos, equipamentos, dungeons e pets
@@ -113,7 +114,7 @@ Requer Node.js 20 ou mais recente:
 npm test
 ```
 
-Os testes verificam o catálogo de 200 heróis, distribuição de raridades, buffs multiplicativos, pity, curva inicial, desbloqueios, limite da formação, ATB, HP individual, cura, ataques inimigos, hordas, bosses e produção offline.
+Os 14 testes verificam o catálogo e os kits únicos dos 200 heróis, passivas em 5 estrelas, alternância entre Ataque e Especial, raridades, buffs multiplicativos, pity, curva inicial, desbloqueios, formação, ATB, HP, cura, ataques inimigos, hordas, bosses e produção offline.
 
 ## Salvamento e privacidade
 

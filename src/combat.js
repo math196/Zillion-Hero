@@ -231,13 +231,13 @@ function defeatEnemy(state, events, random) {
   }
 }
 
-function damageEnemy(state, rawDamage, events, random, actor, action, critical = false) {
+function damageEnemy(state, rawDamage, events, random, actor, action, critical = false, kind = "basic") {
   const enemy = ensureEnemy(state, random);
   const enemyDefenseMultiplier = effectMultiplier(state.combat.activeEffects, "defense", "enemy");
   const effectiveDefense = Math.max(0, enemy.defense * enemyDefenseMultiplier);
   const damage = Math.max(1, rawDamage * (100 / (100 + effectiveDefense)));
   enemy.hp -= damage;
-  events.push({ type: "heroAction", actor, action, target: enemy.name, amount: damage, critical });
+  events.push({ type: "heroAction", actor, action, target: enemy.name, amount: damage, critical, kind });
   if (enemy.hp > 0) return false;
   defeatEnemy(state, events, random);
   return true;
@@ -253,15 +253,15 @@ function useHeroTurn(state, member, events, random) {
 
   if (hero.role === "healer" && instance.cooldownRemaining <= 0 && defeatedAlly) {
     reviveMember(defeatedAlly, hero.name, events);
-    instance.cooldownRemaining = hero.ability.cooldown;
-    battle.lastAction = `${hero.ability.name} → ${defeatedAlly.hero.name}`;
+    instance.cooldownRemaining = hero.special.cooldown;
+    battle.lastAction = `${hero.special.name} → ${defeatedAlly.hero.name}`;
     return 0;
   }
   if (hero.role === "healer" && wounded && wounded.battle.hp / wounded.battle.maxHp < 0.72) {
     const healPercent = hero.rarity === "legendary" ? 0.45 : hero.rarity === "epic" ? 0.34 : hero.rarity === "rare" ? 0.27 : 0.2;
     restoreMember(state, wounded, wounded.battle.maxHp * healPercent + stats.hpRecovery * 3, hero.name, events);
-    instance.cooldownRemaining = Math.max(4, hero.ability.cooldown * 0.65);
-    battle.lastAction = `${hero.ability.name} → ${wounded.hero.name}`;
+    instance.cooldownRemaining = Math.max(4, hero.special.cooldown * 0.65);
+    battle.lastAction = `${hero.special.name} → ${wounded.hero.name}`;
     return 0;
   }
   const lowestRatio = wounded ? wounded.battle.hp / wounded.battle.maxHp : 1;
@@ -274,16 +274,16 @@ function useHeroTurn(state, member, events, random) {
 
   const useSkill = instance.cooldownRemaining <= 0 && hero.role !== "healer";
   if (useSkill) {
-    activateEffects(state.combat.activeEffects, member.heroId, hero.ability.effects);
-    instance.cooldownRemaining = hero.ability.cooldown;
+    activateEffects(state.combat.activeEffects, member.heroId, hero.special.effects);
+    instance.cooldownRemaining = hero.special.cooldown;
   }
-  const coefficient = useSkill ? hero.rarity === "legendary" ? 4 : hero.rarity === "epic" ? 3 : hero.rarity === "rare" ? 2.1 : 1.5 : 1;
+  const coefficient = useSkill ? hero.rarity === "legendary" ? 4 : hero.rarity === "epic" ? 3 : hero.rarity === "rare" ? 2.1 : 1.5 : hero.basicAttack.coefficient;
   const critical = random() < stats.critRate / 100;
   const criticalMultiplier = critical ? Math.max(1, stats.critDamage / 100) : 1;
-  const action = useSkill ? hero.ability.name : "Attack";
+  const action = useSkill ? hero.special.name : hero.basicAttack.name;
   const rawDamage = stats.attack * coefficient * criticalMultiplier;
   const targetName = ensureEnemy(state, random).name;
-  const killed = damageEnemy(state, rawDamage, events, random, hero.name, action, critical);
+  const killed = damageEnemy(state, rawDamage, events, random, hero.name, action, critical, useSkill ? "special" : "basic");
   battle.damageDone += rawDamage;
   battle.lastAction = `${action} → ${targetName}`;
   return killed ? 1 : 0;
@@ -425,7 +425,7 @@ export function manualStrike(state, random = Math.random) {
   if (state.combat.manualStrikeCooldown > 0) return { ok: false, reason: "cooldown", damage: 0, events };
   const focus = state.shop.upgrades.focus ?? 0;
   const damage = calculateTeamDps(state, state.combat.activeEffects) * (0.65 + focus * 0.15);
-  const killed = damageEnemy(state, damage, events, random, "Comandante", "Ataque Coordenado");
+  const killed = damageEnemy(state, damage, events, random, "Comandante", "Ataque Coordenado", false, "command");
   state.combat.manualStrikeCooldown = 4;
   if (killed) grantKillXp(state, 1, events);
   return { ok: true, damage, events };

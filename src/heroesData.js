@@ -5,9 +5,54 @@ const BASE_STATS = {
   legendary: { hp: 220, attack: 72, defense: 58, critRate: 12, critDamage: 200, hpRecovery: 12, attackSpeed: 112 },
 };
 
+const BASIC_ATTACKS = {
+  dps: { label: "Focused Assault", description: "Deals direct damage to the current target.", coefficient: 1.08 },
+  tank: { label: "Shielded Blow", description: "Deals damage while maintaining a defensive stance.", coefficient: 0.92 },
+  healer: { label: "Restorative Bolt", description: "Deals light damage without delaying emergency healing.", coefficient: 0.82 },
+  support: { label: "Tactical Pulse", description: "Deals light damage while preparing the next team effect.", coefficient: 0.88 },
+  controller: { label: "Disrupting Shot", description: "Deals damage while pressuring the target's defenses.", coefficient: 0.96 },
+};
+
+const PASSIVES = {
+  dps: { stat: "attack", target: "self", label: "Predatory Rhythm" },
+  tank: { stat: "defense", target: "self", label: "Unbroken Line" },
+  healer: { stat: "hpRecovery", target: "team", label: "Shared Renewal" },
+  support: { stat: "attackSpeed", target: "team", label: "Battle Tempo" },
+  controller: { stat: "critRate", target: "team", label: "Exposed Opening" },
+};
+
+function createBasicAttack(id, name, element, role, override) {
+  if (override) return override;
+  const template = BASIC_ATTACKS[role];
+  return {
+    name: `${name}'s ${template.label}`,
+    description: `${template.description} ${element.toUpperCase()} affinity.`,
+    coefficient: Number((template.coefficient + (id % 4) * 0.02).toFixed(2)),
+    target: "enemy",
+  };
+}
+
+function createPassive(id, title, role, override) {
+  if (override) return override;
+  const template = PASSIVES[role];
+  const multiplier = Number((1.04 + (id % 4) * 0.01).toFixed(2));
+  return {
+    name: `${title} — ${template.label}`,
+    description: `At 5★, multiplies ${template.target === "team" ? "the formation's" : "this hero's"} ${template.stat} by ${multiplier.toFixed(2)}.`,
+    unlockedAtStars: 5,
+    effects: [{ stat: template.stat, multiplier, target: template.target }],
+  };
+}
+
 function createHero(id, name, title, element, rarity, role, appearance, ability, overrides = {}) {
   const variance = id % 7;
   const base = BASE_STATS[rarity];
+  const special = {
+    name: ability.name,
+    description: ability.description,
+    cooldown: ability.cooldown ?? (rarity === "legendary" ? 20 : rarity === "epic" ? 16 : rarity === "rare" ? 13 : 10),
+    effects: ability.effects ?? [],
+  };
   return {
     id,
     name,
@@ -26,12 +71,10 @@ function createHero(id, name, title, element, rarity, role, appearance, ability,
       attackSpeed: base.attackSpeed + variance,
       ...overrides.stats,
     },
-    ability: {
-      name: ability.name,
-      description: ability.description,
-      cooldown: ability.cooldown ?? (rarity === "legendary" ? 20 : rarity === "epic" ? 16 : rarity === "rare" ? 13 : 10),
-      effects: ability.effects ?? [],
-    },
+    basicAttack: createBasicAttack(id, name, element, role, overrides.basicAttack),
+    special,
+    ability: special,
+    passive: createPassive(id, title, role, overrides.passive),
   };
 }
 

@@ -5,7 +5,7 @@ import { multiplyEffects } from "../src/buffs.js";
 import { ensureEnemy, manualHeal, partySnapshot, syncPartyState, tickCombat } from "../src/combat.js";
 import { startDungeon } from "../src/dungeons.js";
 import { HEROES } from "../src/heroesData.js";
-import { activeTeamLimit, createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
+import { activeTeamLimit, calculateHeroStats, createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
 import { enemiesInFloor } from "../src/gameData.js";
 import { collectOre, tickMining } from "../src/mining.js";
 import { createInitialState } from "../src/state.js";
@@ -46,6 +46,9 @@ test("catalog has 200 unique heroes with the requested rarity split", () => {
   assert.equal(HEROES.length, 200);
   assert.equal(new Set(HEROES.map((hero) => hero.id)).size, 200);
   assert.equal(new Set(HEROES.map((hero) => hero.name)).size, 200);
+  assert.equal(new Set(HEROES.map((hero) => hero.basicAttack.name)).size, 200);
+  assert.equal(new Set(HEROES.map((hero) => hero.special.name)).size, 200);
+  assert.equal(new Set(HEROES.map((hero) => hero.passive.name)).size, 200);
   assert.deepEqual(
     Object.fromEntries(["common", "rare", "epic", "legendary"].map((rarity) => [rarity, HEROES.filter((hero) => hero.rarity === rarity).length])),
     { common: 100, rare: 60, epic: 30, legendary: 10 },
@@ -53,8 +56,21 @@ test("catalog has 200 unique heroes with the requested rarity split", () => {
   for (const hero of HEROES) {
     assert.ok(hero.title && hero.element && hero.role && hero.appearance);
     assert.ok(hero.stats.hp > 0 && hero.stats.attack > 0);
-    assert.ok(hero.ability.name && hero.ability.description && hero.ability.cooldown > 0);
+    assert.ok(hero.basicAttack.name && hero.basicAttack.description && hero.basicAttack.coefficient > 0);
+    assert.ok(hero.special.name && hero.special.description && hero.special.cooldown > 0);
+    assert.ok(hero.passive.name && hero.passive.description && hero.passive.effects.length > 0);
+    assert.equal(hero.passive.unlockedAtStars, 5);
   }
+});
+
+test("a 5-star team passive changes the intended stat multiplicatively", () => {
+  const state = createInitialState();
+  state.collection["201"].stars = 4;
+  const before = calculateHeroStats(state, 105).hpRecovery;
+  state.collection["201"].stars = 5;
+  const after = calculateHeroStats(state, 105).hpRecovery;
+  const multiplier = HEROES.find((hero) => hero.id === 201).passive.effects[0].multiplier;
+  assert.ok(Math.abs(after / before - multiplier) < 0.000001);
 });
 
 test("percentage buffs accumulate multiplicatively", () => {
@@ -136,6 +152,22 @@ test("a healer spends an ATB turn restoring the most wounded ally", () => {
   const events = tickCombat(state, 0.01, () => 0.5);
   assert.ok(finn.hp > hpBefore);
   assert.ok(events.some((event) => event.type === "heal" && event.healer === "Lina" && event.target === "Finn"));
+});
+
+test("ATB alternates between a hero's named basic attack and special", () => {
+  const state = createInitialState();
+  const finn = HEROES.find((hero) => hero.id === 105);
+  syncPartyState(state);
+  state.combat.enemy = { id: "training", name: "Training Golem", type: "normal", hp: 999999, maxHp: 999999, defense: 0, attack: 0, attackSpeed: 0, atb: 0, turns: 0, abilities: [] };
+  state.combat.party["105"].atb = 100;
+  state.collection["105"].cooldownRemaining = 20;
+  let events = tickCombat(state, 0.01, () => 0.5);
+  assert.ok(events.some((event) => event.type === "heroAction" && event.action === finn.basicAttack.name && event.kind === "basic"));
+
+  state.combat.party["105"].atb = 100;
+  state.collection["105"].cooldownRemaining = 0;
+  events = tickCombat(state, 0.01, () => 0.5);
+  assert.ok(events.some((event) => event.type === "heroAction" && event.action === finn.special.name && event.kind === "special"));
 });
 
 test("first aid heals the living party and starts a cooldown", () => {

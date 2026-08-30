@@ -705,6 +705,59 @@ button:disabled {
   white-space: nowrap;
 }
 
+.party-kit {
+  margin-top: 11px;
+  border-top: 1px dashed var(--line);
+}
+
+.party-kit summary {
+  padding: 10px 0 2px;
+  color: var(--muted);
+  font-size: 0.59rem;
+  cursor: pointer;
+}
+
+.kit-entry {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 3px 8px;
+  padding: 9px 0;
+  border-bottom: 1px dashed rgb(56 65 57 / 65%);
+}
+
+.kit-entry > span {
+  grid-row: 1 / 3;
+  color: var(--warning);
+  font-size: 0.56rem;
+}
+
+.kit-entry.special > span {
+  color: #bf79ff;
+}
+
+.kit-entry.passive > span,
+.kit-entry.passive.active strong {
+  color: var(--success);
+}
+
+.kit-entry.passive.locked {
+  opacity: 0.48;
+}
+
+.kit-entry strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kit-entry small {
+  color: var(--muted);
+  font-size: 0.56rem;
+  line-height: 1.45;
+}
+
 .unit-meter {
   display: grid;
   grid-template-columns: 28px 1fr 78px;
@@ -928,6 +981,32 @@ button:disabled {
 
 .hero-card details p {
   margin: 10px 0 0;
+}
+
+.hero-kit {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hero-kit > p {
+  padding: 10px;
+  border-left: 2px solid var(--line-bright);
+  background: rgb(255 255 255 / 2%);
+}
+
+.hero-kit > p > span,
+.hero-kit > p > strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.hero-kit .passive-active {
+  border-left-color: var(--success);
+}
+
+.hero-kit .passive-locked {
+  opacity: 0.55;
 }
 
 .equipment-control {

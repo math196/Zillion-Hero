@@ -17,9 +17,10 @@ Se uma funcionalidade não melhora pelo menos uma dessas etapas, ela não tem pr
 
 ## Batalha textual ATB
 
-- Cada herói possui HP, ATB, função, cooldown, estado e última ação.
+- Cada herói possui HP, ATB, função, estado, última ação e um kit formado por Ataque Básico, Especial e Passiva.
 - Velocidade de Ataque determina quanto tempo a barra ATB demora para chegar a 100%.
-- Em 100%, a IA do herói escolhe uma ação coerente com sua função.
+- Em 100%, a IA usa o Especial quando estiver pronto; durante o cooldown, usa o Ataque Básico próprio.
+- A Passiva é exclusiva de cada herói e entra nos cálculos ao alcançar 5 estrelas.
 - O inimigo também possui ATB, escolhe alvos e pode causar KO.
 - O registro informa ator, ação, alvo, dano, cura, crítico, guarda e KO.
 - O combate continua automaticamente, mas o jogador pode usar Ataque Coordenado e Primeiros Socorros com cooldown.
