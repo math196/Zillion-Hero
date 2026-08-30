@@ -425,7 +425,7 @@ export function manualStrike(state, random = Math.random) {
   if (state.combat.manualStrikeCooldown > 0) return { ok: false, reason: "cooldown", damage: 0, events };
   const focus = state.shop.upgrades.focus ?? 0;
   const damage = calculateTeamDps(state, state.combat.activeEffects) * (0.65 + focus * 0.15);
-  const killed = damageEnemy(state, damage, events, random, "Comandante", "Ataque Coordenado", false, "command");
+  const killed = damageEnemy(state, damage, events, random, "Commander", "Coordinated Strike", false, "command");
   state.combat.manualStrikeCooldown = 4;
   if (killed) grantKillXp(state, 1, events);
   return { ok: true, damage, events };
@@ -438,7 +438,7 @@ export function manualHeal(state) {
   if (state.combat.manualHealCooldown > 0) return { ok: false, reason: "cooldown", amount: 0, events };
   if (members.every((member) => member.battle.hp >= member.battle.maxHp)) return { ok: false, reason: "full", amount: 0, events };
   let total = 0;
-  for (const member of members) total += restoreMember(state, member, member.battle.maxHp * 0.18, "Comandante", events);
+  for (const member of members) total += restoreMember(state, member, member.battle.maxHp * 0.18, "Commander", events);
   state.combat.manualHealCooldown = 30;
   ensureTeamHealth(state);
   return { ok: true, amount: total, events };

@@ -28,6 +28,7 @@ As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md):
 - Buffs e debuffs cumulativos multiplicativos.
 - Combate automático em andares com hordas de 20 a 50 inimigos.
 - Velocidades 2× e 3× liberadas por progresso, sem aumentar ganhos offline.
+- Interface totalmente separada entre inglês e português; novas campanhas começam em inglês.
 - Batalha textual ATB com HP, turno, estado e última ação de cada herói.
 - IA por função: DPS ataca, Tank protege, Healer cura/revive, Support fortalece e Controller enfraquece.
 - Inimigos atacam a formação, podem causar KO e obrigar um reagrupamento.

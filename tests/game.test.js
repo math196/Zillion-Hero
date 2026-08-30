@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { multiplyEffects } from "../src/buffs.js";
@@ -8,12 +9,16 @@ import { HEROES } from "../src/heroesData.js";
 import { activeTeamLimit, calculateHeroStats, createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
 import { enemiesInFloor } from "../src/gameData.js";
 import { currentCombatSpeed, isCombatSpeedUnlocked, scaledCombatElapsed, setCombatSpeed } from "../src/gameSpeed.js";
+import { gameTerm, localizeEntity, localizeHero } from "../src/gameText.js";
 import { collectOre, tickMining } from "../src/mining.js";
 import { createInitialState } from "../src/state.js";
+import { translate } from "../src/i18n.js";
 import { isSystemUnlocked, syncProgression } from "../src/progression.js";
 
 test("a new campaign starts modestly with only the core systems", () => {
   const state = createInitialState();
+  assert.equal(state.language, "en");
+  assert.equal(state.settings.playerName, "Commander");
   assert.deepEqual(state.activeTeam, [105, 201]);
   assert.equal(state.resources.gold, 40);
   assert.equal(state.resources.crystals, 0);
@@ -22,6 +27,40 @@ test("a new campaign starts modestly with only the core systems", () => {
   assert.equal(isSystemUnlocked(state, "profile"), true);
   assert.equal(isSystemUnlocked(state, "heroes"), false);
   assert.equal(isSystemUnlocked(state, "summon"), false);
+});
+
+test("Portuguese and English presentation never share the other language's hero copy", () => {
+  const finn = HEROES.find((hero) => hero.id === 105);
+  const portuguese = localizeHero(finn, "pt");
+  const english = localizeHero(finn, "en");
+
+  assert.equal(gameTerm("role", "healer", "pt"), "Curador");
+  assert.equal(gameTerm("rarity", "legendary", "pt"), "Lendário");
+  assert.match(portuguese.basicAttack.name, /de Finn/);
+  assert.doesNotMatch(`${portuguese.title} ${portuguese.appearance} ${portuguese.basicAttack.description} ${portuguese.special.description}`, /Deals|Attack|Special|distinctive|equipment/i);
+  assert.match(english.appearance, /distinctive fire dps/i);
+  assert.doesNotMatch(english.appearance, /visual|energia|equipamento/i);
+  assert.equal(localizeEntity({ id: "ancient-crypt", name: "Ancient Crypt" }, "dungeon", "pt").name, "Cripta Antiga");
+
+  for (const hero of HEROES) {
+    const pt = localizeHero(hero, "pt");
+    const en = localizeHero(hero, "en");
+    assert.doesNotMatch(`${pt.title} ${pt.appearance} ${pt.basicAttack.name} ${pt.basicAttack.description} ${pt.special.name} ${pt.special.description} ${pt.passive.name} ${pt.passive.description}`, /Deals|Attack|Special|Passive|distinctive|equipment|allies|enemy/i, `English leaked into Portuguese copy for ${hero.name}`);
+    assert.doesNotMatch(`${en.appearance} ${en.basicAttack.description} ${en.special.description} ${en.passive.description}`, /visual inconfundível|energia de|equipamento próprio|ao alcançar|causa dano/i, `Portuguese leaked into English copy for ${hero.name}`);
+  }
+});
+
+test("every static interface translation used by the main screen exists in both languages", () => {
+  const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const htmlSource = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const keys = [
+    ...mainSource.matchAll(/\bt\("([^"]+)"/g),
+    ...htmlSource.matchAll(/data-i18n(?:-aria-label)?="([^"]+)"/g),
+  ].map((match) => match[1]);
+  for (const key of new Set(keys)) {
+    assert.notEqual(translate("pt", key), key, `missing Portuguese translation for ${key}`);
+    assert.notEqual(translate("en", key), key, `missing English translation for ${key}`);
+  }
 });
 
 test("systems unlock gradually and milestone rewards are only granted once", () => {

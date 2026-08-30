@@ -6,9 +6,9 @@ import { createProgressionState, normalizeProgression } from "./progression.js";
 export function createInitialState(now = Date.now()) {
   return {
     version: GAME_VERSION,
-    language: "pt",
+    language: "en",
     settings: {
-      playerName: "Comandante",
+      playerName: "Commander",
       theme: "terminal",
       volume: 0,
       offlineCapHours: 12,

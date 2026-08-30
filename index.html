@@ -1,103 +1,103 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Zillion Hero: um RPG idle textual sobre heróis, expedições e progressão infinita."
+      content="Zillion Hero: a text-only idle RPG about heroes, expeditions, and endless progression."
     />
     <meta name="theme-color" content="#0d0f0e" />
-    <title>Zillion Hero // Idle RPG textual</title>
+    <title>Zillion Hero // Text-only Idle RPG</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <a class="skip-link" href="#game-view" data-i18n="a11y.skip">Pular para o jogo</a>
+    <a class="skip-link" href="#game-view" data-i18n="a11y.skip">Skip to game</a>
 
     <div class="game-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow" data-i18n="shell.eyebrow">SIMULAÇÃO IDLE // SESSÃO LOCAL</p>
+          <p class="eyebrow" data-i18n="shell.eyebrow">IDLE SIMULATION // LOCAL SESSION</p>
           <h1>ZILLION HERO</h1>
         </div>
         <div class="session-status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
-          <span id="save-status" data-i18n="status.ready">PRONTO</span>
+          <span id="save-status" data-i18n="status.ready">READY</span>
         </div>
       </header>
 
-      <section class="resource-strip" aria-label="Recursos">
-        <div data-resource="gold"><span data-i18n="resource.gold">OURO</span><strong id="stat-gold">0</strong></div>
-        <div data-resource="crystals"><span data-i18n="resource.crystals">CRISTAIS</span><strong id="stat-crystals">0</strong></div>
-        <div data-resource="ore"><span data-i18n="resource.ore">MINÉRIO</span><strong id="stat-ore">0</strong></div>
-        <div data-resource="essence"><span data-i18n="resource.essence">ESSÊNCIA</span><strong id="stat-essence">0</strong></div>
+      <section class="resource-strip" aria-label="Resources" data-i18n-aria-label="a11y.resources">
+        <div data-resource="gold"><span data-i18n="resource.gold">GOLD</span><strong id="stat-gold">0</strong></div>
+        <div data-resource="crystals"><span data-i18n="resource.crystals">CRYSTALS</span><strong id="stat-crystals">0</strong></div>
+        <div data-resource="ore"><span data-i18n="resource.ore">ORE</span><strong id="stat-ore">0</strong></div>
+        <div data-resource="essence"><span data-i18n="resource.essence">ESSENCE</span><strong id="stat-essence">0</strong></div>
         <div data-resource="dps"><span>DPS</span><strong id="stat-dps">0</strong></div>
-        <div data-resource="floor"><span data-i18n="resource.zone">ZONA</span><strong id="stat-zone">1-1</strong></div>
+        <div data-resource="floor"><span data-i18n="resource.zone">FLOOR</span><strong id="stat-zone">1</strong></div>
       </section>
 
       <div class="workspace">
-        <nav class="primary-nav" aria-label="Seções do jogo">
-          <p class="panel-label" data-i18n="nav.command">COMANDO</p>
+        <nav class="primary-nav" aria-label="Game sections" data-i18n-aria-label="a11y.gameSections">
+          <p class="panel-label" data-i18n="nav.command">COMMAND</p>
           <button class="nav-button active" type="button" data-view="combat">
-            <span>[01]</span> <b data-i18n="nav.expedition">EXPEDIÇÃO</b>
+            <span>[01]</span> <b data-i18n="nav.expedition">EXPEDITION</b>
           </button>
           <button class="nav-button" type="button" data-view="heroes">
-            <span>[02]</span> <b data-i18n="nav.heroes">HERÓIS</b>
+            <span>[02]</span> <b data-i18n="nav.heroes">HEROES</b>
           </button>
           <button class="nav-button" type="button" data-view="dungeons">
             <span>[03]</span> <b data-i18n="nav.dungeons">DUNGEONS</b>
           </button>
           <button class="nav-button" type="button" data-view="mining">
-            <span>[04]</span> <b data-i18n="nav.mining">MINERAÇÃO</b>
+            <span>[04]</span> <b data-i18n="nav.mining">MINING</b>
           </button>
           <button class="nav-button" type="button" data-view="summon">
             <span>[05]</span> <b data-i18n="nav.summon">SUMMON</b>
           </button>
           <button class="nav-button" type="button" data-view="shop">
-            <span>[06]</span> <b data-i18n="nav.market">MERCADO</b>
+            <span>[06]</span> <b data-i18n="nav.market">MARKET</b>
           </button>
           <button class="nav-button" type="button" data-view="pets">
             <span>[07]</span> <b data-i18n="nav.pets">PETS</b>
           </button>
           <button class="nav-button" type="button" data-view="profile">
-            <span>[08]</span> <b data-i18n="nav.profile">PERFIL</b>
+            <span>[08]</span> <b data-i18n="nav.profile">PROFILE</b>
           </button>
           <button class="nav-button" type="button" data-view="legacy">
-            <span>[09]</span> <b data-i18n="nav.legacy">LEGADO</b>
+            <span>[09]</span> <b data-i18n="nav.legacy">LEGACY</b>
           </button>
 
           <div class="nav-hint">
-            <span data-i18n="nav.shortcuts">ATALHOS</span>
-            <p data-i18n="nav.keys">1–9 navegar</p>
-            <p data-i18n="nav.pauseKey">Espaço pausar</p>
+            <span data-i18n="nav.shortcuts">SHORTCUTS</span>
+            <p data-i18n="nav.keys">1–9 navigate</p>
+            <p data-i18n="nav.pauseKey">Space pauses</p>
           </div>
         </nav>
 
         <main id="game-view" class="game-view" tabindex="-1">
-          <noscript>O jogo precisa de JavaScript para executar a simulação.</noscript>
+          <noscript>The game requires JavaScript to run the simulation.</noscript>
         </main>
 
-        <aside class="event-panel" aria-label="Registro da expedição">
+        <aside class="event-panel" aria-label="Expedition log" data-i18n-aria-label="a11y.expeditionLog">
           <div class="panel-heading">
             <div>
-              <p class="panel-label" data-i18n="log.signal">SINAL DA EQUIPE</p>
-              <h2 data-i18n="log.title">REGISTRO</h2>
+              <p class="panel-label" data-i18n="log.signal">SQUAD SIGNAL</p>
+              <h2 data-i18n="log.title">LOG</h2>
             </div>
-            <button id="clear-log" class="text-button" type="button" data-i18n="action.clear">LIMPAR</button>
+            <button id="clear-log" class="text-button" type="button" data-i18n="action.clear">CLEAR</button>
           </div>
           <ol id="event-log" class="event-log" aria-live="polite"></ol>
         </aside>
       </div>
 
       <footer class="utility-bar">
-        <p data-i18n="footer.local">Todo o progresso fica neste navegador.</p>
+        <p data-i18n="footer.local">All progress remains in this browser.</p>
         <div>
-          <button id="guide-button" class="text-button" type="button" data-i18n="action.guide">GUIA</button>
-          <button id="help-button" class="text-button" type="button" data-i18n="action.help">AJUDA</button>
-          <button id="language-button" class="text-button" type="button">ENGLISH</button>
-          <button id="save-button" class="text-button" type="button" data-i18n="action.save">SALVAR</button>
-          <button id="export-button" class="text-button" type="button" data-i18n="action.export">EXPORTAR</button>
-          <button id="import-button" class="text-button" type="button" data-i18n="action.import">IMPORTAR</button>
+          <button id="guide-button" class="text-button" type="button" data-i18n="action.guide">GUIDE</button>
+          <button id="help-button" class="text-button" type="button" data-i18n="action.help">HELP</button>
+          <button id="language-button" class="text-button" type="button">PORTUGUÊS</button>
+          <button id="save-button" class="text-button" type="button" data-i18n="action.save">SAVE</button>
+          <button id="export-button" class="text-button" type="button" data-i18n="action.export">EXPORT</button>
+          <button id="import-button" class="text-button" type="button" data-i18n="action.import">IMPORT</button>
           <input id="import-file" type="file" accept="application/json,.json" hidden />
         </div>
       </footer>

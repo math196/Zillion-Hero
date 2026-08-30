@@ -1,4 +1,4 @@
-export const GAME_VERSION = 6;
+export const GAME_VERSION = 7;
 
 export const ELEMENTS = ["fire", "water", "earth", "wind", "light", "dark", "metal", "nature"];
 
