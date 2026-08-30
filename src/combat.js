@@ -10,7 +10,7 @@ const RECOVERY_SECONDS = 8;
 function hordeEnemyHp(floor, enemyNumber, archetype) {
   const floorScale = Math.pow(1.19, Math.max(0, floor - 1));
   const waveScale = 1 + enemyNumber * 0.012;
-  return Math.floor(70 * floorScale * waveScale * archetype.hpMultiplier);
+  return Math.floor(18 * floorScale * waveScale * archetype.hpMultiplier);
 }
 
 function bossEnemyHp(floor, boss) {
@@ -56,7 +56,7 @@ export function ensureEnemy(state, random = Math.random) {
     maxHp,
     attack: Math.floor((8 + floor * 3) * archetype.attackMultiplier),
     attackSpeed: 88 + floor * 0.7,
-    atb: 0,
+    atb: 25,
     turns: 0,
     abilities: archetype.abilities,
     defense: Math.floor(floor * 1.2),

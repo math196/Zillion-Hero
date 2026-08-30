@@ -106,6 +106,25 @@ test("every normal floor contains 20 to 50 enemies", () => {
   }
 });
 
+test("the first floor progresses quickly while enemies still fight back", () => {
+  const state = createInitialState();
+  let elapsed = 0;
+  let enemyActions = 0;
+  let heals = 0;
+
+  while (state.combat.floor === 1 && elapsed < 180) {
+    const events = tickCombat(state, 0.5, () => 0.5);
+    enemyActions += events.filter((event) => event.type === "enemyAction").length;
+    heals += events.filter((event) => event.type === "heal").length;
+    elapsed += 0.5;
+  }
+
+  assert.equal(state.combat.floor, 2);
+  assert.ok(elapsed >= 45 && elapsed <= 120, `first floor took ${elapsed}s`);
+  assert.ok(enemyActions > 0, "enemies must act before the floor is cleared");
+  assert.ok(heals > 0, "the healer must have a reason to act during the floor");
+});
+
 test("floor 10 transitions from horde to boss and then to floor 11", () => {
   const state = createInitialState();
   state.combat.floor = 10;
