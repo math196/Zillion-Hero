@@ -1,4 +1,4 @@
-export const GAME_VERSION = 4;
+export const GAME_VERSION = 5;
 
 export const ELEMENTS = ["fire", "water", "earth", "wind", "light", "dark", "metal", "nature"];
 
@@ -119,7 +119,7 @@ export const PETS = [
 ];
 
 export function enemiesInFloor(floor) {
-  return 20 + ((floor * 17 + 11) % 31);
+  return 20 + (((Math.max(1, floor) - 1) * 3) % 31);
 }
 
 export function areaForFloor(floor) {

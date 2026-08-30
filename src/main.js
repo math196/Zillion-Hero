@@ -1,11 +1,12 @@
 import { formatEffectPercent } from "./buffs.js";
-import { ensureEnemy, manualStrike, tickCombat } from "./combat.js";
+import { ensureEnemy, manualHeal, manualStrike, partySnapshot, teamSurvivalStats, tickCombat } from "./combat.js";
 import { abandonDungeon, startDungeon, tickDungeon } from "./dungeons.js";
 import { equipHero, summonEquipment } from "./equipment.js";
 import { DUNGEONS, EQUIPMENT, PETS, SHOP_UPGRADES, areaForFloor } from "./gameData.js";
 import {
   HERO_SUMMON_COST,
   MAX_ACTIVE_HEROES,
+  activeTeamLimit,
   calculateHeroDps,
   calculateTeamDps,
   getHeroInstance,
@@ -18,6 +19,18 @@ import { HEROES, HERO_BY_ID, RARITY_ORDER, SUMMON_RATES } from "./heroesData.js"
 import { translate, translateStatic } from "./i18n.js";
 import { collectOre, expandMineStorage, manualMine, orePerCycle, tickMining } from "./mining.js";
 import { PET_SUMMON_COST, selectPet, summonPet } from "./pets.js";
+import {
+  SYSTEM_UNLOCKS,
+  advanceTutorial,
+  clearUnlockNotice,
+  hideTutorial,
+  isSystemUnlocked,
+  nextLockedSystem,
+  reopenTutorial,
+  skipTutorial,
+  syncProgression,
+  systemUnlock,
+} from "./progression.js";
 import { essenceReward, performRebirth } from "./rebirth.js";
 import { clearSave, downloadSave, importSaveFile, loadGame, offlineSecondsFor, saveGame } from "./save.js";
 import { buyShopEquipment, buyUpgrade, craftEquipment, rerollShop, upgradeCost } from "./shop.js";
@@ -34,9 +47,12 @@ const elements = {
   essence: document.querySelector("#stat-essence"),
   dps: document.querySelector("#stat-dps"),
   floor: document.querySelector("#stat-zone"),
+  tutorial: document.querySelector("#tutorial-panel"),
+  help: document.querySelector("#help-dialog"),
 };
 
 let state = loadGame() ?? createInitialState();
+const startupUnlocks = syncProgression(state);
 let currentView = "combat";
 let renderAt = 0;
 let toastTimer = null;
@@ -98,6 +114,20 @@ function describeEvents(events) {
       addLog(`${event.boss} — ${event.ability}.`, "boss");
     } else if (event.type === "skill") {
       addLog(`${event.hero}: ${event.ability}.`, "skill");
+    } else if (event.type === "heroAction") {
+      addLog(`${event.actor} → ${event.action} → ${event.target}: ${formatNumber(event.amount)}${event.critical ? " CRIT" : ""}.`, event.action === "Attack" ? "info" : "skill");
+    } else if (event.type === "enemyAction") {
+      addLog(`${event.actor} → ${event.action} → ${event.target}: -${formatNumber(event.amount)} HP${event.ko ? " · KO" : ""}.`, "danger");
+    } else if (event.type === "heal") {
+      addLog(`${event.healer} → ${event.target}: +${formatNumber(event.amount)} HP.`, "heal");
+    } else if (event.type === "revive") {
+      addLog(`${event.healer} reviveu ${event.target} com ${formatNumber(event.amount)} HP.`, "heal");
+    } else if (event.type === "guard") {
+      addLog(`${event.actor} entrou em guarda e passou a atrair ataques.`, "guard");
+    } else if (event.type === "teamDefeated") {
+      addLog(language() === "pt" ? `A formação caiu. Reagrupando por ${event.recovery}s.` : `The formation fell. Regrouping for ${event.recovery}s.`, "danger");
+    } else if (event.type === "teamRecovered") {
+      addLog(language() === "pt" ? "A formação se recuperou e voltou ao combate." : "The formation recovered and returned to combat.", "success");
     } else if (event.type === "dungeonBoss") {
       addLog(language() === "pt" ? `Boss de dungeon detectado: ${event.name}.` : `Dungeon boss detected: ${event.name}.`, "boss");
     } else if (event.type === "dungeonComplete") {
@@ -119,9 +149,19 @@ function viewHeader(label, titleKey, descriptionKey) {
 
 function renderStats() {
   elements.gold.textContent = formatNumber(state.resources.gold);
-  elements.crystals.textContent = formatNumber(state.resources.crystals);
-  elements.ore.textContent = formatNumber(state.resources.ore);
-  elements.essence.textContent = formatNumber(state.resources.essence);
+  const crystalUnlocked = isSystemUnlocked(state, "summon") || isSystemUnlocked(state, "dungeons");
+  const resourceVisibility = {
+    crystals: { unlocked: crystalUnlocked, requirement: systemUnlock("summon") },
+    ore: { unlocked: isSystemUnlocked(state, "mining"), requirement: systemUnlock("mining") },
+    essence: { unlocked: isSystemUnlocked(state, "legacy"), requirement: systemUnlock("legacy") },
+  };
+  for (const [resource, config] of Object.entries(resourceVisibility)) {
+    const container = document.querySelector(`[data-resource="${resource}"]`);
+    const output = elements[resource];
+    output.textContent = config.unlocked ? formatNumber(state.resources[resource]) : "—";
+    container.classList.toggle("locked-resource", !config.unlocked);
+    container.title = config.unlocked ? "" : t(config.requirement.requirementKey);
+  }
   elements.dps.textContent = formatNumber(calculateTeamDps(state, state.combat.activeEffects));
   elements.floor.textContent = formatNumber(state.combat.floor);
 }
@@ -130,12 +170,26 @@ function renderCombat() {
   const enemy = ensureEnemy(state);
   const area = areaForFloor(state.combat.floor);
   const enemyHp = enemy.maxHp ? (enemy.hp / enemy.maxHp) * 100 : 0;
+  const enemyAtb = Math.min(100, enemy.atb ?? 0);
   const cleared = state.combat.enemiesTotal - state.combat.enemiesRemaining;
   const hordeProgress = state.combat.phase === "boss" ? 100 : (cleared / state.combat.enemiesTotal) * 100;
-  const teamNames = state.activeTeam.slice(0, 6).map((id) => HERO_BY_ID.get(Number(id))?.name).filter(Boolean);
+  const party = partySnapshot(state);
+  const survival = teamSurvivalStats(state);
+  const partyHpPercent = survival.maxHp ? survival.hp / survival.maxHp * 100 : 0;
+  const recovering = state.combat.recovering > 0;
   const effectMarkup = state.combat.activeEffects.length
     ? state.combat.activeEffects.slice(0, 10).map((effect) => `<span class="effect-chip ${effect.target}">${escapeHtml(effect.stat)} ${formatEffectPercent(effect.multiplier)} · ${Math.ceil(effect.remaining)}s</span>`).join("")
     : `<span class="empty-inline">${language() === "pt" ? "Nenhum efeito temporário." : "No temporary effects."}</span>`;
+  const partyMarkup = party.map(({ hero, battle }) => {
+    const hpPercent = battle.maxHp ? battle.hp / battle.maxHp * 100 : 0;
+    const status = battle.hp <= 0 ? "KO" : battle.guard > 0 ? (language() === "pt" ? "GUARDA" : "GUARD") : battle.atb >= 100 ? (language() === "pt" ? "AGINDO" : "ACTING") : "ATB";
+    return `<article class="party-member role-${hero.role} ${battle.hp <= 0 ? "ko" : ""}">
+      <div class="party-member-head"><strong>${escapeHtml(hero.name)}</strong><span>${hero.role.toUpperCase()} · ${status}</span></div>
+      <div class="unit-meter"><span>HP</span><div class="meter hp"><i style="width:${percent(hpPercent)}"></i></div><b>${formatNumber(battle.hp)} / ${formatNumber(battle.maxHp)}</b></div>
+      <div class="unit-meter"><span>ATB</span><div class="meter atb"><i style="width:${percent(battle.atb)}"></i></div><b>${Math.floor(Math.min(100, battle.atb))}%</b></div>
+      <p>${language() === "pt" ? "ÚLTIMA AÇÃO" : "LAST ACTION"}: ${escapeHtml(battle.lastAction)}</p>
+    </article>`;
+  }).join("");
 
   elements.view.innerHTML = `
     ${viewHeader(`${area.name} // ${t("resource.zone")} ${state.combat.floor}`, "view.combatTitle", "view.combatDesc")}
@@ -145,7 +199,7 @@ function renderCombat() {
           <span class="micro-label">${t("combat.target")} // ${enemy.type.toUpperCase()}</span>
           <h3>${escapeHtml(enemy.name)}</h3>
         </div>
-        <span class="tag ${enemy.type === "boss" ? "danger-tag" : ""}">${state.combat.paused ? t("combat.paused") : t("combat.inCombat")}</span>
+        <span class="tag ${enemy.type === "boss" || recovering ? "danger-tag" : ""}">${recovering ? `${language() === "pt" ? "REAGRUPANDO" : "REGROUPING"} ${state.combat.recovering.toFixed(1)}s` : state.combat.paused ? t("combat.paused") : "AUTO ATB"}</span>
       </div>
 
       <div class="health-row">
@@ -154,23 +208,36 @@ function renderCombat() {
         <strong>${formatNumber(Math.max(0, enemy.hp))} / ${formatNumber(enemy.maxHp)}</strong>
       </div>
       <div class="health-row">
+        <span>${language() === "pt" ? "ATB INIMIGO" : "ENEMY ATB"}</span>
+        <div class="meter atb enemy-atb"><span style="width:${percent(enemyAtb)}"></span></div>
+        <strong>${Math.floor(enemyAtb)}%</strong>
+      </div>
+      <div class="health-row">
         <span>${t("combat.horde")}</span>
         <div class="meter"><span style="width:${percent(hordeProgress)}"></span></div>
         <strong>${state.combat.phase === "boss" ? t("combat.boss") : `${state.combat.enemiesRemaining} ${t("combat.remaining")}`}</strong>
       </div>
-
-      <div class="battle-readout">
-        <div><span class="micro-label">DPS</span><strong>${formatNumber(calculateTeamDps(state, state.combat.activeEffects))}</strong></div>
-        <div><span class="micro-label">${t("combat.team")}</span><strong>${state.activeTeam.length} / ${MAX_ACTIVE_HEROES}</strong></div>
-        <div><span class="micro-label">${language() === "pt" ? "REGIÃO" : "REGION"}</span><strong>${escapeHtml(area.name)}</strong></div>
+      <div class="health-row party-total">
+        <span>${language() === "pt" ? "EQUIPE" : "PARTY"}</span>
+        <div class="meter hp"><span style="width:${percent(partyHpPercent)}"></span></div>
+        <strong>${formatNumber(survival.hp)} / ${formatNumber(survival.maxHp)}</strong>
       </div>
 
-      <div class="team-line"><span>${teamNames.join(" · ")}${state.activeTeam.length > 6 ? ` · +${state.activeTeam.length - 6}` : ""}</span></div>
+      <div class="battle-readout four">
+        <div><span class="micro-label">${language() === "pt" ? "VIVOS" : "ALIVE"}</span><strong>${survival.alive} / ${party.length}</strong></div>
+        <div><span class="micro-label">${language() === "pt" ? "DEFESA" : "DEFENSE"}</span><strong>${formatNumber(survival.defense)}</strong></div>
+        <div><span class="micro-label">HEALERS</span><strong>${survival.healers}</strong></div>
+        <div><span class="micro-label">${language() === "pt" ? "ÚLTIMA CURA" : "LAST HEAL"}</span><strong>${state.combat.lastHealer ? `${escapeHtml(state.combat.lastHealer)} +${formatNumber(state.combat.lastHealAmount)}` : "—"}</strong></div>
+      </div>
+
+      <div class="section-heading battle-party-title"><h3 class="section-title">${language() === "pt" ? "FORMAÇÃO ATB" : "ATB PARTY"}</h3><span>${state.activeTeam.length} / ${activeTeamLimit(state)}</span></div>
+      <section class="party-grid">${partyMarkup}</section>
       <div class="effect-box"><span class="micro-label">${t("combat.effects")}</span><div>${effectMarkup}</div></div>
 
       <div class="action-row">
         <button class="primary-action" type="button" data-action="toggle-pause">${state.combat.paused ? t("combat.resume") : t("combat.pause")}</button>
-        <button class="secondary-action" type="button" data-action="manual-strike">${t("combat.manual")}</button>
+        <button class="secondary-action" type="button" data-action="manual-strike" ${state.combat.manualStrikeCooldown > 0 || recovering ? "disabled" : ""}>${language() === "pt" ? "ATAQUE COORDENADO" : "FOCUS ATTACK"}${state.combat.manualStrikeCooldown > 0 ? ` · ${Math.ceil(state.combat.manualStrikeCooldown)}s` : ""}</button>
+        <button class="secondary-action heal-action" type="button" data-action="manual-heal" ${state.combat.manualHealCooldown > 0 || recovering || survival.hp >= survival.maxHp ? "disabled" : ""}>${language() === "pt" ? "PRIMEIROS SOCORROS" : "FIRST AID"}${state.combat.manualHealCooldown > 0 ? ` · ${Math.ceil(state.combat.manualHealCooldown)}s` : ""}</button>
       </div>
     </section>`;
 }
@@ -195,7 +262,7 @@ function heroCard(hero) {
       <button class="small-action" data-action="equip-hero" data-id="${hero.id}">EQUIP</button>
     </div>` : "";
   const progress = instance
-    ? `<span>LV ${instance.level}</span><span>${"★".repeat(instance.stars)}${"☆".repeat(5 - instance.stars)}</span><span>${formatNumber(dps)} DPS</span><span>IV ${(ivScore(instance.ivs) * 100).toFixed(1)}</span>`
+    ? `<span>${hero.role.toUpperCase()}</span><span>LV ${instance.level}</span><span>${"★".repeat(instance.stars)}${"☆".repeat(5 - instance.stars)}</span><span>${formatNumber(dps)} DPS</span><span>IV ${(ivScore(instance.ivs) * 100).toFixed(1)}</span>`
     : `<span>${hero.element.toUpperCase()}</span><span>${hero.role.toUpperCase()}</span>`;
   return `
     <article class="hero-card rarity-${hero.rarity} ${active ? "selected" : ""} ${instance ? "owned" : "locked"}">
@@ -230,7 +297,7 @@ function renderHeroes() {
     ${viewHeader("200 HEROES // UNLIMITED COLLECTION", "view.heroesTitle", "view.heroesDesc")}
     <section class="summary-grid three">
       <div class="summary-card"><span>${t("heroes.owned")}</span><strong>${ownedCount}</strong></div>
-      <div class="summary-card"><span>${t("heroes.active")}</span><strong>${state.activeTeam.length} / ${MAX_ACTIVE_HEROES}</strong></div>
+      <div class="summary-card"><span>${t("heroes.active")}</span><strong>${state.activeTeam.length} / ${activeTeamLimit(state)} <small>${language() === "pt" ? `(máx. ${MAX_ACTIVE_HEROES})` : `(max ${MAX_ACTIVE_HEROES})`}</small></strong></div>
       <div class="summary-card"><span>${t("heroes.total")}</span><strong>${HEROES.length}</strong></div>
     </section>
     <section class="filter-bar">
@@ -363,6 +430,8 @@ function renderProfile() {
           <p><span>BOSSES</span><strong>${formatNumber(state.player.bossesDefeated)}</strong></p>
           <p><span>SUMMONS</span><strong>${formatNumber(state.summon.total)}</strong></p>
           <p><span>HEROES</span><strong>${ownedHeroes(state).length} / ${HEROES.length}</strong></p>
+          <p><span>DAMAGE TAKEN</span><strong>${formatNumber(state.combat.damageTaken)}</strong></p>
+          <p><span>HEALING DONE</span><strong>${formatNumber(state.combat.healingDone)}</strong></p>
           <p><span>PLAY TIME</span><strong>${(state.player.totalPlaySeconds / 3600).toFixed(1)}H</strong></p>
         </div>
       </div>
@@ -384,15 +453,136 @@ function renderLegacy() {
 
 function renderCurrentView() {
   renderStats();
+  syncNavigation();
+  renderTutorial();
   const renderers = { combat: renderCombat, heroes: renderHeroes, dungeons: renderDungeons, mining: renderMining, summon: renderSummon, shop: renderMarket, pets: renderPets, profile: renderProfile, legacy: renderLegacy };
   (renderers[currentView] ?? renderCombat)();
 }
 
 function setView(view) {
+  if (!isSystemUnlocked(state, view)) {
+    showToast(t(systemUnlock(view)?.requirementKey ?? "unlock.combat.requirement"));
+    return;
+  }
   currentView = view;
   document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   renderCurrentView();
   elements.view.focus();
+}
+
+function systemName(id) {
+  const keys = { combat: "nav.expedition", heroes: "nav.heroes", dungeons: "nav.dungeons", mining: "nav.mining", summon: "nav.summon", shop: "nav.market", pets: "nav.pets", profile: "nav.profile", legacy: "nav.legacy" };
+  return t(keys[id] ?? id);
+}
+
+function syncNavigation() {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    const unlocked = isSystemUnlocked(state, button.dataset.view);
+    button.disabled = !unlocked;
+    button.classList.toggle("locked", !unlocked);
+    button.title = unlocked ? "" : t(systemUnlock(button.dataset.view).requirementKey);
+    let hint = button.querySelector(".nav-lock");
+    if (!hint) {
+      hint = document.createElement("small");
+      hint.className = "nav-lock";
+      button.append(hint);
+    }
+    hint.textContent = unlocked ? "" : `🔒 ${t(systemUnlock(button.dataset.view).requirementKey)}`;
+    hint.hidden = unlocked;
+  });
+}
+
+function renderTutorial() {
+  const tutorial = state.progression.tutorial;
+  elements.tutorial.hidden = tutorial.hidden;
+  if (tutorial.hidden) return;
+
+  const basics = [
+    ["tutorial.welcomeTitle", "tutorial.welcomeBody"],
+    ["tutorial.combatTitle", "tutorial.combatBody"],
+    ["tutorial.resourcesTitle", "tutorial.resourcesBody"],
+    ["tutorial.unlocksTitle", "tutorial.unlocksBody"],
+  ];
+  let kicker;
+  let title;
+  let body;
+  let primaryAction;
+  let primaryLabel;
+  let primaryView = "";
+
+  if (tutorial.notice) {
+    const system = systemUnlock(tutorial.notice);
+    kicker = t("tutorial.unlocked");
+    title = systemName(system.id);
+    body = `${t(`unlock.${system.id}.description`)}${system.reward?.crystals ? ` ${t("tutorial.crystalBonus", { amount: system.reward.crystals })}` : ""}`;
+    primaryAction = "open-system";
+    primaryLabel = t("tutorial.openSystem");
+    primaryView = system.id;
+  } else if (tutorial.step < basics.length) {
+    kicker = t("tutorial.step", { current: tutorial.step + 1, total: basics.length });
+    title = t(basics[tutorial.step][0]);
+    body = t(basics[tutorial.step][1]);
+    primaryAction = "next";
+    primaryLabel = tutorial.step === basics.length - 1 ? t("tutorial.finishBasics") : t("tutorial.next");
+  } else {
+    const next = nextLockedSystem(state);
+    kicker = next ? t("tutorial.nextUnlock") : t("tutorial.complete");
+    title = next ? systemName(next.id) : t("tutorial.completeTitle");
+    body = next
+      ? `${t(`unlock.${next.id}.description`)} ${t(next.requirementKey)}`
+      : t("tutorial.completeBody");
+    primaryAction = "hide";
+    primaryLabel = t("tutorial.closeForNow");
+  }
+
+  const restart = state.player.highestFloor > 1 && tutorial.step === 0
+    ? `<button class="text-button tutorial-restart" type="button" data-tutorial-action="new-game">${escapeHtml(t("tutorial.restart"))}</button>`
+    : "";
+  const skip = tutorial.step < basics.length
+    ? `<button class="text-button" type="button" data-tutorial-action="skip">${escapeHtml(t("tutorial.skip"))}</button>`
+    : "";
+
+  elements.tutorial.innerHTML = `
+    <p class="panel-label">${escapeHtml(kicker)}</p>
+    <h2 id="tutorial-title">${escapeHtml(title)}</h2>
+    <p>${escapeHtml(body)}</p>
+    <div class="tutorial-actions">
+      <button class="primary-action" type="button" data-tutorial-action="${primaryAction}" ${primaryView ? `data-view-target="${primaryView}"` : ""}>${escapeHtml(primaryLabel)}</button>
+      ${restart}${skip}
+    </div>`;
+}
+
+function renderHelpDialog() {
+  const pt = language() === "pt";
+  const roadmap = SYSTEM_UNLOCKS.filter((system) => !["combat", "profile"].includes(system.id)).map((system) => `
+    <li class="${isSystemUnlocked(state, system.id) ? "done" : ""}">
+      <strong>${escapeHtml(systemName(system.id))}</strong>
+      <span>${escapeHtml(isSystemUnlocked(state, system.id) ? (pt ? "LIBERADO" : "UNLOCKED") : t(system.requirementKey))}</span>
+    </li>`).join("");
+  elements.help.innerHTML = `
+    <div class="help-heading"><div><p class="panel-label">${pt ? "MANUAL DO COMANDANTE" : "COMMANDER MANUAL"}</p><h2 id="help-title">${pt ? "COMO O JOGO FUNCIONA" : "HOW THE GAME WORKS"}</h2></div><button class="text-button" type="button" data-help-close>${t("action.close")}</button></div>
+    <section class="help-section"><h3>${pt ? "O CICLO PRINCIPAL" : "THE CORE LOOP"}</h3><p>${pt ? "Sua formação ataca automaticamente. Derrote a horda, receba ouro e XP, avance de andar e prepare-se para um boss a cada 10 andares. O jogo calcula até 12 horas de progresso quando você volta." : "Your formation attacks automatically. Defeat the horde, earn gold and XP, advance floors, and face a boss every 10 floors. The game calculates up to 12 hours of progress when you return."}</p></section>
+    <section class="help-section"><h3>${pt ? "BATALHA ATB" : "ATB BATTLE"}</h3><p>${pt ? "A barra ATB enche conforme a Velocidade de Ataque. Em 100%, o herói age: DPS prioriza dano, Healer cura o aliado mais ferido e revive, Tank entra em Guarda e atrai golpes, Support fortalece a equipe e Controller enfraquece o inimigo. HP zero causa KO; se todos caírem, a equipe reagrupa e tenta novamente. Ataque Coordenado e Primeiros Socorros são comandos manuais com recarga." : "The ATB gauge fills according to Attack Speed. At 100%, the hero acts: DPS prioritizes damage, Healers restore the most wounded ally and revive, Tanks Guard and draw attacks, Supports empower the party, and Controllers weaken enemies. Zero HP causes KO; if everyone falls, the party regroups and retries. Focus Attack and First Aid are manual commands with cooldowns."}</p></section>
+    <section class="help-grid">
+      <article><strong>${pt ? "OURO" : "GOLD"}</strong><p>${pt ? "Compra melhorias e equipamentos no Mercado." : "Buys upgrades and equipment in the Market."}</p></article>
+      <article><strong>${pt ? "CRISTAIS" : "CRYSTALS"}</strong><p>${pt ? "Invocam heróis e pets. Vêm de marcos e dungeons." : "Summon heroes and pets. Earned from milestones and dungeons."}</p></article>
+      <article><strong>${pt ? "MINÉRIO" : "ORE"}</strong><p>${pt ? "Serve para craft. A Mineração produz mesmo offline." : "Used for crafting. Mining produces it while offline."}</p></article>
+      <article><strong>${pt ? "ESSÊNCIA" : "ESSENCE"}</strong><p>${pt ? "Bônus permanente recebido ao fazer Rebirth." : "Permanent bonus earned through Rebirth."}</p></article>
+      <article><strong>DPS</strong><p>${pt ? "Dano que sua formação causa por segundo." : "Damage your formation deals per second."}</p></article>
+      <article><strong>IV</strong><p>${pt ? "Variação individual dos atributos. Quanto maior, melhor." : "Individual stat variation. Higher is better."}</p></article>
+      <article><strong>PITY</strong><p>${pt ? "Proteção contra azar: o 100º summon sem lendário é garantido." : "Bad-luck protection: the 100th summon without a legendary is guaranteed."}</p></article>
+      <article><strong>${pt ? "BUFFS" : "BUFFS"}</strong><p>${pt ? "São multiplicativos: 5% de crítico com +50% vira 7,5%." : "They multiply: 5% crit with +50% becomes 7.5%."}</p></article>
+    </section>
+    <section class="help-section"><h3>${pt ? "ROTA DE DESBLOQUEIO" : "UNLOCK ROADMAP"}</h3><ol class="unlock-roadmap">${roadmap}</ol></section>`;
+}
+
+function checkUnlocks() {
+  const unlocked = syncProgression(state);
+  for (const system of unlocked) {
+    addLog(t("tutorial.unlockLog", { system: systemName(system.id) }), "success");
+  }
+  if (unlocked.length > 0) showToast(t("tutorial.unlockToast", { system: systemName(unlocked.at(-1).id) }));
+  return unlocked;
 }
 
 function persist(showStatus = false) {
@@ -409,7 +599,11 @@ function performAction(action, target) {
   else if (action === "manual-strike") {
     const result = manualStrike(state);
     describeEvents(result.events);
-    showToast(`${t("combat.manual")}: ${formatNumber(result.damage)}`);
+    showToast(result.ok ? `${language() === "pt" ? "Ataque coordenado" : "Focus attack"}: ${formatNumber(result.damage)}` : `${language() === "pt" ? "Ação em recarga" : "Action on cooldown"}.`);
+  } else if (action === "manual-heal") {
+    const result = manualHeal(state);
+    describeEvents(result.events);
+    showToast(result.ok ? `+${formatNumber(result.amount)} HP` : language() === "pt" ? "Cura indisponível." : "Healing unavailable.");
   } else if (action === "toggle-hero") {
     const result = toggleTeamHero(state, Number(id));
     if (!result.ok) showToast(result.reason === "teamFull" ? t("heroes.teamFull") : "Action unavailable.");
@@ -457,6 +651,8 @@ function performAction(action, target) {
     if (!confirm(language() === "pt" ? "Apagar todo o progresso local?" : "Delete all local progress?")) return;
     clearSave();
     state = createInitialState();
+    syncProgression(state);
+    currentView = "combat";
     elements.log.replaceChildren();
     translateStatic(language());
     addLog(language() === "pt" ? "Novo jogo iniciado." : "New game started.");
@@ -465,6 +661,7 @@ function performAction(action, target) {
     const result = performRebirth(state);
     if (result.ok) addLog(`Rebirth complete. +${result.reward} Essence.`, "success");
   }
+  checkUnlocks();
   persist();
   renderCurrentView();
 }
@@ -492,6 +689,44 @@ elements.view.addEventListener("change", (event) => {
   }
 });
 
+elements.tutorial.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-tutorial-action]");
+  if (!target) return;
+  const action = target.dataset.tutorialAction;
+  if (action === "next") advanceTutorial(state);
+  else if (action === "hide") hideTutorial(state);
+  else if (action === "skip") skipTutorial(state);
+  else if (action === "open-system") {
+    const view = target.dataset.viewTarget;
+    clearUnlockNotice(state);
+    hideTutorial(state);
+    setView(view);
+  } else if (action === "new-game") {
+    if (!confirm(t("tutorial.restartConfirm"))) return;
+    clearSave();
+    state = createInitialState();
+    syncProgression(state);
+    currentView = "combat";
+    elements.log.replaceChildren();
+    addLog(t("tutorial.restartLog"), "success");
+  }
+  persist();
+  renderCurrentView();
+});
+
+document.querySelector("#guide-button").addEventListener("click", () => {
+  reopenTutorial(state);
+  renderTutorial();
+  persist();
+});
+document.querySelector("#help-button").addEventListener("click", () => {
+  renderHelpDialog();
+  elements.help.showModal();
+});
+elements.help.addEventListener("click", (event) => {
+  if (event.target.closest("[data-help-close]")) elements.help.close();
+});
+
 document.querySelector("#clear-log").addEventListener("click", () => { elements.log.replaceChildren(); addLog(language() === "pt" ? "Registro limpo." : "Log cleared."); });
 document.querySelector("#save-button").addEventListener("click", () => persist(true));
 document.querySelector("#export-button").addEventListener("click", () => downloadSave(state));
@@ -499,6 +734,8 @@ document.querySelector("#import-button").addEventListener("click", () => documen
 document.querySelector("#import-file").addEventListener("change", async (event) => {
   try {
     state = await importSaveFile(event.target.files[0]);
+    checkUnlocks();
+    if (!isSystemUnlocked(state, currentView)) currentView = "combat";
     persist();
     translateStatic(language());
     renderCurrentView();
@@ -514,6 +751,7 @@ document.querySelector("#language-button").addEventListener("click", () => {
   document.querySelector("#language-button").textContent = state.language === "pt" ? "ENGLISH" : "PORTUGUÊS";
   translateStatic(language());
   renderCurrentView();
+  if (elements.help.open) renderHelpDialog();
   persist();
 });
 
@@ -529,17 +767,20 @@ document.addEventListener("keydown", (event) => {
 
 const offlineSeconds = offlineSecondsFor(state);
 if (offlineSeconds > 5) {
+  const mineWasUnlocked = isSystemUnlocked(state, "mining");
   describeEvents(tickCombat(state, offlineSeconds));
   describeEvents(tickDungeon(state, offlineSeconds));
-  const mined = tickMining(state, offlineSeconds);
+  const mined = mineWasUnlocked ? tickMining(state, offlineSeconds) : 0;
   addLog(language() === "pt"
     ? `Progresso offline de ${(offlineSeconds / 3600).toFixed(1)}h aplicado. Mina: +${mined}.`
     : `${(offlineSeconds / 3600).toFixed(1)}h of offline progress applied. Mine: +${mined}.`, "success");
 }
+checkUnlocks();
 state.meta.lastTickAt = Date.now();
 translateStatic(language());
 document.querySelector("#language-button").textContent = state.language === "pt" ? "ENGLISH" : "PORTUGUÊS";
 addLog(language() === "pt" ? "Zillion Hero iniciado. Formação pronta para avançar." : "Zillion Hero started. Formation ready to advance.");
+for (const system of startupUnlocks) addLog(t("tutorial.unlockLog", { system: systemName(system.id) }), "success");
 renderCurrentView();
 
 let previousTime = performance.now();
@@ -548,10 +789,11 @@ function loop(currentTime) {
   previousTime = currentTime;
   describeEvents(tickCombat(state, elapsed));
   describeEvents(tickDungeon(state, elapsed));
-  tickMining(state, elapsed);
+  if (isSystemUnlocked(state, "mining")) tickMining(state, elapsed);
+  const unlocked = checkUnlocks();
   state.meta.lastTickAt = Date.now();
   renderStats();
-  if (currentTime - renderAt > 350 && ["combat", "dungeons", "mining"].includes(currentView)) {
+  if (unlocked.length > 0 || (currentTime - renderAt > 350 && ["combat", "dungeons", "mining"].includes(currentView))) {
     renderAt = currentTime;
     renderCurrentView();
   }

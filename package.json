@@ -1,6 +1,6 @@
 {
   "name": "zillion-hero",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "A text-only single-player idle RPG with 200 collectible heroes.",

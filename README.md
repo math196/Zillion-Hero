@@ -8,13 +8,15 @@ Zillion Hero é um RPG idle single-player, totalmente textual, inspirado na prog
 
 ## Marco atual — Fases 2, 3 e base da Fase 4
 
+As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md): primeiro um combate legível e interessante; depois, novas camadas de conteúdo.
+
 - Catálogo com **200 heróis únicos**:
   - 100 Common
   - 60 Rare
   - 30 Epic
   - 10 Legendary
 - Coleção sem limite de capacidade.
-- Formação ativa de até 20 heróis.
+- Formação ativa que começa com 2 espaços e cresce a cada 3 andares, até 20 heróis.
 - Cinco funções: DPS, Tank, Healer, Support e Controller.
 - Oito elementos e sinergias de formação.
 - Fichas completas com aparência textual, atributos, habilidade, cooldown e efeitos.
@@ -24,6 +26,10 @@ Zillion Hero é um RPG idle single-player, totalmente textual, inspirado na prog
 - Duplicatas geram fragmentos, estrelas e podem melhorar os IVs existentes.
 - Buffs e debuffs cumulativos multiplicativos.
 - Combate automático em andares com hordas de 20 a 50 inimigos.
+- Batalha textual ATB com HP, turno, estado e última ação de cada herói.
+- IA por função: DPS ataca, Tank protege, Healer cura/revive, Support fortalece e Controller enfraquece.
+- Inimigos atacam a formação, podem causar KO e obrigar um reagrupamento.
+- Comandos manuais de Ataque Coordenado e Primeiros Socorros com cooldown.
 - Boss a cada 10 andares, com fala e habilidades próprias.
 - Dungeons paralelas com cristais, tokens e progressão por andar.
 - XP e level-up para heróis e jogador.
@@ -34,7 +40,23 @@ Zillion Hero é um RPG idle single-player, totalmente textual, inspirado na prog
 - Rebirth a partir do andar 50, concedendo Essência permanente.
 - Save automático, exportação/importação JSON e novo jogo.
 - Interface em português e inglês.
+- Tutorial inicial em quatro passos, avisos contextuais e manual permanente.
+- Sistemas liberados gradualmente conforme o avanço da campanha.
 - Navegação por teclado, layout responsivo e redução de movimento.
+
+## Progressão guiada
+
+Uma campanha nova começa apenas com Expedição e Perfil. O restante aparece quando passa a ser útil:
+
+1. Heróis: concluir o andar 1.
+2. Mineração: alcançar o andar 3.
+3. Summon: alcançar o andar 5, com 10 Cristais de introdução.
+4. Mercado: alcançar o andar 7.
+5. Dungeons: derrotar o boss do andar 10.
+6. Pets: concluir a primeira dungeon.
+7. Legado: alcançar o andar 50.
+
+O botão **GUIA** reabre o objetivo atual e **AJUDA** explica recursos, IV, pity, buffs e o ciclo principal. Saves anteriores podem usar **RECOMEÇAR COM O TUTORIAL** na introdução para experimentar a curva desde o início.
 
 ### Regra dos buffs
 
@@ -54,10 +76,11 @@ index.html                 Interface principal
 style.css                  Tema terminal e layout responsivo
 src/
   main.js                  Roteamento, renderização e loop principal
+  progression.js           Tutorial, marcos, recompensas e desbloqueios
   heroesData.js            Dados dos 200 heróis
   heroes.js                Coleção, IVs, equipe, DPS e summon
   buffs.js                 Efeitos multiplicativos
-  combat.js                Hordas, andares, bosses e recompensas
+  combat.js                ATB, HP individual, IA por função, hordas, bosses e recompensas
   gameData.js              Inimigos, equipamentos, dungeons e pets
   dungeons.js              Progressão paralela e cristais
   equipment.js             Loot, estrelas e equipamento de heróis
@@ -90,7 +113,7 @@ Requer Node.js 20 ou mais recente:
 npm test
 ```
 
-Os testes verificam o catálogo de 200 heróis, distribuição de raridades, buffs multiplicativos, pity, limite da formação, quantidade das hordas, bosses e produção offline.
+Os testes verificam o catálogo de 200 heróis, distribuição de raridades, buffs multiplicativos, pity, curva inicial, desbloqueios, limite da formação, ATB, HP individual, cura, ataques inimigos, hordas, bosses e produção offline.
 
 ## Salvamento e privacidade
 

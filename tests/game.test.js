@@ -2,13 +2,45 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { multiplyEffects } from "../src/buffs.js";
-import { ensureEnemy, tickCombat } from "../src/combat.js";
+import { ensureEnemy, manualHeal, partySnapshot, syncPartyState, tickCombat } from "../src/combat.js";
 import { startDungeon } from "../src/dungeons.js";
 import { HEROES } from "../src/heroesData.js";
-import { createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
+import { activeTeamLimit, createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
 import { enemiesInFloor } from "../src/gameData.js";
 import { collectOre, tickMining } from "../src/mining.js";
 import { createInitialState } from "../src/state.js";
+import { isSystemUnlocked, syncProgression } from "../src/progression.js";
+
+test("a new campaign starts modestly with only the core systems", () => {
+  const state = createInitialState();
+  assert.deepEqual(state.activeTeam, [105, 201]);
+  assert.equal(state.resources.gold, 40);
+  assert.equal(state.resources.crystals, 0);
+  assert.equal(activeTeamLimit(state), 2);
+  assert.equal(isSystemUnlocked(state, "combat"), true);
+  assert.equal(isSystemUnlocked(state, "profile"), true);
+  assert.equal(isSystemUnlocked(state, "heroes"), false);
+  assert.equal(isSystemUnlocked(state, "summon"), false);
+});
+
+test("systems unlock gradually and milestone rewards are only granted once", () => {
+  const state = createInitialState();
+  state.player.highestFloor = 5;
+  const unlocked = syncProgression(state).map((system) => system.id);
+  assert.deepEqual(unlocked, ["heroes", "mining", "summon"]);
+  assert.equal(state.resources.crystals, 10);
+  assert.equal(activeTeamLimit(state), 3);
+  syncProgression(state);
+  assert.equal(state.resources.crystals, 10);
+
+  state.player.bossesDefeated = 1;
+  assert.deepEqual(syncProgression(state).map((system) => system.id), ["dungeons"]);
+  assert.equal(state.resources.crystals, 15);
+
+  state.dungeons.records["ancient-crypt"] = 1;
+  assert.deepEqual(syncProgression(state).map((system) => system.id), ["pets"]);
+  assert.equal(state.resources.crystals, 45);
+});
 
 test("catalog has 200 unique heroes with the requested rarity split", () => {
   assert.equal(HEROES.length, 200);
@@ -64,17 +96,57 @@ test("floor 10 transitions from horde to boss and then to floor 11", () => {
   state.combat.phase = "horde";
   state.combat.enemiesTotal = 1;
   state.combat.enemiesRemaining = 1;
-  state.combat.enemy = { id: "test", name: "Test", type: "normal", hp: 1, maxHp: 1, defense: 0, abilities: [] };
-  state.combat.attackTimer = 2;
-  tickCombat(state, 2, () => 0.5);
+  state.combat.enemy = { id: "test", name: "Test", type: "normal", hp: 1, maxHp: 1, defense: 0, attack: 0, attackSpeed: 0, atb: 0, turns: 0, abilities: [] };
+  syncPartyState(state);
+  Object.values(state.combat.party).forEach((member) => { member.atb = 100; });
+  tickCombat(state, 0.01, () => 0.5);
   assert.equal(state.combat.phase, "boss");
   ensureEnemy(state, () => 0.5);
   assert.equal(state.combat.enemy.type, "boss");
   state.combat.enemy.hp = 1;
-  state.combat.attackTimer = 2;
-  tickCombat(state, 2, () => 0.5);
+  Object.values(state.combat.party).forEach((member) => { member.atb = 100; });
+  tickCombat(state, 0.01, () => 0.5);
   assert.equal(state.combat.floor, 11);
   assert.equal(state.combat.phase, "horde");
+});
+
+test("ATB battle tracks individual HP and enemy attacks a party member", () => {
+  const state = createInitialState();
+  const party = partySnapshot(state);
+  assert.equal(party.length, 2);
+  assert.ok(party.every((member) => member.battle.hp === member.battle.maxHp));
+  state.combat.enemy = { id: "training", name: "Training Golem", type: "normal", hp: 999999, maxHp: 999999, defense: 0, attack: 40, attackSpeed: 100, atb: 100, turns: 0, abilities: [] };
+  const hpBefore = party.reduce((total, member) => total + member.battle.hp, 0);
+  const events = tickCombat(state, 0.01, () => 0.5);
+  const hpAfter = partySnapshot(state).reduce((total, member) => total + member.battle.hp, 0);
+  assert.ok(hpAfter < hpBefore);
+  assert.ok(events.some((event) => event.type === "enemyAction"));
+});
+
+test("a healer spends an ATB turn restoring the most wounded ally", () => {
+  const state = createInitialState();
+  syncPartyState(state);
+  const finn = state.combat.party["105"];
+  const lina = state.combat.party["201"];
+  finn.hp = finn.maxHp * 0.25;
+  lina.atb = 100;
+  state.collection["201"].cooldownRemaining = 0;
+  state.combat.enemy = { id: "training", name: "Training Golem", type: "normal", hp: 999999, maxHp: 999999, defense: 0, attack: 0, attackSpeed: 0, atb: 0, turns: 0, abilities: [] };
+  const hpBefore = finn.hp;
+  const events = tickCombat(state, 0.01, () => 0.5);
+  assert.ok(finn.hp > hpBefore);
+  assert.ok(events.some((event) => event.type === "heal" && event.healer === "Lina" && event.target === "Finn"));
+});
+
+test("first aid heals the living party and starts a cooldown", () => {
+  const state = createInitialState();
+  syncPartyState(state);
+  state.combat.party["105"].hp *= 0.5;
+  const result = manualHeal(state);
+  assert.equal(result.ok, true);
+  assert.ok(result.amount > 0);
+  assert.equal(state.combat.manualHealCooldown, 30);
+  assert.equal(manualHeal(state).reason, "cooldown");
 });
 
 test("dungeon and mining loops produce offline rewards", () => {

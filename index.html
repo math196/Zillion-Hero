@@ -27,12 +27,12 @@
       </header>
 
       <section class="resource-strip" aria-label="Recursos">
-        <div><span data-i18n="resource.gold">OURO</span><strong id="stat-gold">0</strong></div>
-        <div><span data-i18n="resource.crystals">CRISTAIS</span><strong id="stat-crystals">0</strong></div>
-        <div><span data-i18n="resource.ore">MINÉRIO</span><strong id="stat-ore">0</strong></div>
-        <div><span data-i18n="resource.essence">ESSÊNCIA</span><strong id="stat-essence">0</strong></div>
-        <div><span>DPS</span><strong id="stat-dps">0</strong></div>
-        <div><span data-i18n="resource.zone">ZONA</span><strong id="stat-zone">1-1</strong></div>
+        <div data-resource="gold"><span data-i18n="resource.gold">OURO</span><strong id="stat-gold">0</strong></div>
+        <div data-resource="crystals"><span data-i18n="resource.crystals">CRISTAIS</span><strong id="stat-crystals">0</strong></div>
+        <div data-resource="ore"><span data-i18n="resource.ore">MINÉRIO</span><strong id="stat-ore">0</strong></div>
+        <div data-resource="essence"><span data-i18n="resource.essence">ESSÊNCIA</span><strong id="stat-essence">0</strong></div>
+        <div data-resource="dps"><span>DPS</span><strong id="stat-dps">0</strong></div>
+        <div data-resource="floor"><span data-i18n="resource.zone">ZONA</span><strong id="stat-zone">1-1</strong></div>
       </section>
 
       <div class="workspace">
@@ -92,6 +92,8 @@
       <footer class="utility-bar">
         <p data-i18n="footer.local">Todo o progresso fica neste navegador.</p>
         <div>
+          <button id="guide-button" class="text-button" type="button" data-i18n="action.guide">GUIA</button>
+          <button id="help-button" class="text-button" type="button" data-i18n="action.help">AJUDA</button>
           <button id="language-button" class="text-button" type="button">ENGLISH</button>
           <button id="save-button" class="text-button" type="button" data-i18n="action.save">SALVAR</button>
           <button id="export-button" class="text-button" type="button" data-i18n="action.export">EXPORTAR</button>
@@ -101,6 +103,8 @@
       </footer>
     </div>
 
+    <section id="tutorial-panel" class="tutorial-panel" role="dialog" aria-labelledby="tutorial-title" hidden></section>
+    <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title"></dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="src/main.js"></script>
   </body>

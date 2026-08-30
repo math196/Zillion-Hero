@@ -5,6 +5,10 @@ import { HEROES, HERO_BY_ID, SUMMON_RATES } from "./heroesData.js";
 export const MAX_ACTIVE_HEROES = 20;
 export const HERO_SUMMON_COST = 5;
 
+export function activeTeamLimit(state) {
+  return Math.min(MAX_ACTIVE_HEROES, 2 + Math.floor(Math.max(0, state.player.highestFloor - 1) / 3));
+}
+
 const IV_STATS = ["hp", "attack", "defense", "critRate", "critDamage", "hpRecovery", "attackSpeed"];
 
 export function rollIVs(random = Math.random) {
@@ -33,8 +37,8 @@ export function createHeroInstance(heroId, random = Math.random, overrides = {})
 
 export function createStarterCollection() {
   return {
-    201: createHeroInstance(201, () => 0.58, { level: 1, xp: 15, xpToNext: 50, stars: 2 }),
-    503: createHeroInstance(503, () => 0.62, { level: 2, xp: 30, xpToNext: 70, stars: 3, equipmentId: "flaming-sword" }),
+    105: createHeroInstance(105, () => 0.52),
+    201: createHeroInstance(201, () => 0.52),
   };
 }
 
@@ -119,7 +123,7 @@ export function toggleTeamHero(state, heroId) {
     state.activeTeam.splice(index, 1);
     return { ok: true, active: false };
   }
-  if (state.activeTeam.length >= MAX_ACTIVE_HEROES) return { ok: false, reason: "teamFull" };
+  if (state.activeTeam.length >= activeTeamLimit(state)) return { ok: false, reason: "teamFull" };
   state.activeTeam.push(numericId);
   return { ok: true, active: true };
 }
@@ -152,7 +156,6 @@ export function summonHero(state, random = Math.random) {
   if (!existing) {
     state.collection[String(hero.id)] = createHeroInstance(hero.id, random, { ivs: rolledIVs });
     isNew = true;
-    if (state.activeTeam.length < MAX_ACTIVE_HEROES) state.activeTeam.push(hero.id);
   } else {
     existing.shards += 1;
     if (ivScore(rolledIVs) > ivScore(existing.ivs)) {
