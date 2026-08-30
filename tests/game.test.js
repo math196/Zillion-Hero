@@ -10,7 +10,7 @@ import { activeTeamLimit, calculateHeroStats, createHeroInstance, summonHero, to
 import { enemiesInFloor } from "../src/gameData.js";
 import { currentCombatSpeed, isCombatSpeedUnlocked, scaledCombatElapsed, setCombatSpeed } from "../src/gameSpeed.js";
 import { gameTerm, localizeEntity, localizeHero } from "../src/gameText.js";
-import { collectOre, tickMining } from "../src/mining.js";
+import { collectOre, expandMineStorage, storageExpansionCost, tickMining } from "../src/mining.js";
 import { createInitialState } from "../src/state.js";
 import { translate } from "../src/i18n.js";
 import { isSystemUnlocked, syncProgression } from "../src/progression.js";
@@ -61,6 +61,41 @@ test("every static interface translation used by the main screen exists in both 
     assert.notEqual(translate("pt", key), key, `missing Portuguese translation for ${key}`);
     assert.notEqual(translate("en", key), key, `missing English translation for ${key}`);
   }
+});
+
+test("every resource-spending control visibly renders its dynamic cost", () => {
+  const mainSource = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const paidActions = [
+    "start-dungeon",
+    "expand-storage",
+    "summon-hero",
+    "buy-upgrade",
+    "reroll-shop",
+    "buy-equipment",
+    "craft-equipment",
+    "summon-equipment",
+    "summon-pet",
+  ];
+
+  for (const action of paidActions) {
+    const marker = `data-action="${action}"`;
+    const index = mainSource.indexOf(marker);
+    assert.notEqual(index, -1, `missing paid action ${action}`);
+    const snippet = mainSource.slice(Math.max(0, index - 140), index + 260);
+    assert.match(snippet, /purchase-action/, `${action} must use the paid-action presentation`);
+    assert.match(snippet, /Control\.content/, `${action} must render its cost`);
+  }
+});
+
+test("storage expansion exposes its current cost and increases it with capacity", () => {
+  const state = createInitialState();
+  assert.equal(storageExpansionCost(state), 150);
+  state.resources.gold = 149;
+  assert.deepEqual(expandMineStorage(state), { ok: false, cost: 150 });
+  state.resources.gold = 150;
+  assert.deepEqual(expandMineStorage(state), { ok: true, cost: 150 });
+  assert.equal(state.mining.storageCap, 750);
+  assert.equal(storageExpansionCost(state), 225);
 });
 
 test("systems unlock gradually and milestone rewards are only granted once", () => {

@@ -32,11 +32,14 @@ export function collectOre(state) {
   return amount;
 }
 
+export function storageExpansionCost(state) {
+  return Math.floor(state.mining.storageCap * 0.3);
+}
+
 export function expandMineStorage(state) {
-  const cost = Math.floor(state.mining.storageCap * 0.3);
+  const cost = storageExpansionCost(state);
   if (state.resources.gold < cost) return { ok: false, cost };
   state.resources.gold -= cost;
   state.mining.storageCap += 250;
   return { ok: true, cost };
 }
-

@@ -1,6 +1,9 @@
 import { grantEquipment, rollEquipment } from "./equipment.js";
 import { EQUIPMENT, SHOP_UPGRADES } from "./gameData.js";
 
+export const SHOP_REROLL_COST = 100;
+export const EQUIPMENT_CRAFT_COST = 120;
+
 export function upgradeCost(state, upgradeId) {
   const template = SHOP_UPGRADES.find((upgrade) => upgrade.id === upgradeId);
   if (!template) return Infinity;
@@ -21,7 +24,7 @@ export function buyUpgrade(state, upgradeId) {
 }
 
 export function rerollShop(state, random = Math.random) {
-  const cost = 100;
+  const cost = SHOP_REROLL_COST;
   if (state.resources.gold < cost) return { ok: false, reason: "gold", cost };
   state.resources.gold -= cost;
   const ids = [...EQUIPMENT].sort(() => random() - 0.5).slice(0, 3).map((item) => item.id);
@@ -39,9 +42,8 @@ export function buyShopEquipment(state, equipmentId) {
 }
 
 export function craftEquipment(state, random = Math.random) {
-  const cost = 120;
+  const cost = EQUIPMENT_CRAFT_COST;
   if (state.resources.ore < cost) return { ok: false, reason: "ore", cost };
   state.resources.ore -= cost;
   return grantEquipment(state, rollEquipment(random).id);
 }
-

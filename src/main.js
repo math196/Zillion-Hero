@@ -1,7 +1,7 @@
 import { formatEffectPercent } from "./buffs.js";
 import { ensureEnemy, manualHeal, manualStrike, partySnapshot, teamSurvivalStats, tickCombat } from "./combat.js";
 import { abandonDungeon, startDungeon, tickDungeon } from "./dungeons.js";
-import { equipHero, summonEquipment } from "./equipment.js";
+import { EQUIPMENT_SUMMON_COST, equipHero, summonEquipment } from "./equipment.js";
 import { BOSSES, DUNGEONS, EQUIPMENT, PETS, SHOP_UPGRADES, areaForFloor } from "./gameData.js";
 import { COMBAT_SPEEDS, combatSpeedRequirementKey, currentCombatSpeed, isCombatSpeedUnlocked, scaledCombatElapsed, setCombatSpeed } from "./gameSpeed.js";
 import { gameTerm, localizeEntity, localizeHero, localizeHeroAction, localizeKnownAbility, localizeKnownName } from "./gameText.js";
@@ -20,7 +20,7 @@ import {
 } from "./heroes.js";
 import { HEROES, HERO_BY_ID, RARITY_ORDER, SUMMON_RATES } from "./heroesData.js";
 import { translate, translateStatic } from "./i18n.js";
-import { collectOre, expandMineStorage, manualMine, orePerCycle, tickMining } from "./mining.js";
+import { collectOre, expandMineStorage, manualMine, orePerCycle, storageExpansionCost, tickMining } from "./mining.js";
 import { PET_SUMMON_COST, selectPet, summonPet } from "./pets.js";
 import {
   SYSTEM_UNLOCKS,
@@ -36,7 +36,7 @@ import {
 } from "./progression.js";
 import { essenceReward, performRebirth } from "./rebirth.js";
 import { clearSave, downloadSave, importSaveFile, loadGame, offlineSecondsFor, saveGame } from "./save.js";
-import { buyShopEquipment, buyUpgrade, craftEquipment, rerollShop, upgradeCost } from "./shop.js";
+import { EQUIPMENT_CRAFT_COST, SHOP_REROLL_COST, buyShopEquipment, buyUpgrade, craftEquipment, rerollShop, upgradeCost } from "./shop.js";
 import { createInitialState } from "./state.js";
 
 const elements = {
@@ -75,6 +75,21 @@ function formatNumber(value) {
     notation: Math.abs(value) >= 10000 ? "compact" : "standard",
     maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 1,
   }).format(value || 0);
+}
+
+function purchaseControl(label, cost, currency, blockedReason = "") {
+  const balance = Number(state.resources[currency] ?? 0);
+  const missing = Math.max(0, cost - balance);
+  const resource = gameTerm("currency", currency, language()).toUpperCase();
+  const unavailableReason = blockedReason || (missing > 0
+    ? t("action.missingResource", { amount: formatNumber(missing), resource })
+    : "");
+  const status = blockedReason ? "unavailable" : missing > 0 ? "insufficient" : "affordable";
+  const title = unavailableReason || t("action.currentBalance", { amount: formatNumber(balance), resource });
+  return {
+    attributes: `${unavailableReason ? "disabled" : ""} title="${escapeHtml(title)}"`,
+    content: `<span class="action-label">${escapeHtml(label)}</span><span class="action-cost ${status}">${t("action.cost")}: ${formatNumber(cost)} ${resource}</span>`,
+  };
 }
 
 function percent(value) {
@@ -397,12 +412,14 @@ function renderDungeons() {
         const locked = state.player.highestFloor < dungeon.minFloor;
         const weak = calculateTeamDps(state) < dungeon.requiredDps;
         const record = state.dungeons.records[dungeon.id] ?? 0;
+        const blockedReason = locked ? t("reason.locked") : weak ? t("reason.power") : active ? t("dungeon.activeRun") : "";
+        const exploreControl = purchaseControl(t("dungeon.explore"), dungeon.goldCost, "gold", blockedReason);
         return `<article class="data-card">
-          <div class="card-topline"><span>${locked ? t("dungeon.locked") : `${dungeon.goldCost} ${gameTerm("currency", "gold", language()).toUpperCase()}`}</span><span>${dungeon.maxFloor}${t("common.floorShort")}</span></div>
+          <div class="card-topline"><span>${locked ? t("dungeon.locked") : t("dungeon.available")}</span><span>${dungeon.maxFloor}${t("common.floorShort")}</span></div>
           <h3>${escapeHtml(copy.name)}</h3>
           <p>${t("dungeon.record")}: ${record} · ${t("dungeon.required")}: ${formatNumber(dungeon.requiredDps)}</p>
           <p>${t("dungeon.crystalBase")}: ${dungeon.crystalBase} · ${t("dungeon.enemiesPerFloor", { min: 20, max: 50 })}</p>
-          <button class="small-action" data-action="start-dungeon" data-id="${dungeon.id}" ${locked || weak || active ? "disabled" : ""}>${t("dungeon.explore")}</button>
+          <button class="small-action purchase-action" data-action="start-dungeon" data-id="${dungeon.id}" ${exploreControl.attributes}>${exploreControl.content}</button>
         </article>`;
       }).join("")}
     </section>`;
@@ -410,13 +427,17 @@ function renderDungeons() {
 
 function renderMining() {
   const fill = state.mining.storage / state.mining.storageCap * 100;
+  const storageFull = state.mining.storage >= state.mining.storageCap;
+  const storageEmpty = state.mining.storage <= 0;
+  const expansionCost = storageExpansionCost(state);
+  const expansionControl = purchaseControl(t("mining.expand"), expansionCost, "gold");
   elements.view.innerHTML = `
     ${viewHeader(t("eyebrow.mining"), "view.miningTitle", "view.miningDesc")}
     <section class="combat-card">
       <div class="combat-meta"><div><span class="micro-label">${t("mining.storage")}</span><h3>${formatNumber(state.mining.storage)} / ${formatNumber(state.mining.storageCap)} ${gameTerm("currency", "ore", language()).toUpperCase()}</h3></div><span class="tag">+${formatNumber(orePerCycle(state))} / 3S</span></div>
       <div class="meter large"><span style="width:${percent(fill)}"></span></div>
       <div class="battle-readout"><div><span class="micro-label">${t("mining.totalMined")}</span><strong>${formatNumber(state.mining.totalMined)}</strong></div><div><span class="micro-label">${t("mining.pickaxe")}</span><strong>${t("common.levelShort")} ${state.shop.upgrades.pickaxe}</strong></div><div><span class="micro-label">${t("mining.nextCycle")}</span><strong>${Math.max(0, 3 - state.mining.progress).toFixed(1)}S</strong></div></div>
-      <div class="action-row"><button class="primary-action" data-action="manual-mine">${t("mining.manual")}</button><button class="secondary-action" data-action="collect-ore">${t("mining.collect")}</button><button class="secondary-action" data-action="expand-storage">${t("mining.expand")}</button></div>
+      <div class="action-row"><button class="primary-action" data-action="manual-mine" ${storageFull ? `disabled title="${escapeHtml(t("mining.full"))}"` : ""}>${t("mining.manual")}</button><button class="secondary-action" data-action="collect-ore" ${storageEmpty ? `disabled title="${escapeHtml(t("mining.empty"))}"` : ""}>${t("mining.collect")}</button><button class="secondary-action purchase-action" data-action="expand-storage" ${expansionControl.attributes}>${expansionControl.content}</button></div>
     </section>`;
 }
 
@@ -429,6 +450,7 @@ function renderSummon() {
       <p>${escapeHtml(localizeHero(last, language()).title)} · ${gameTerm("role", last.role, language()).toUpperCase()} · ${gameTerm("element", last.element, language()).toUpperCase()}</p>
       <p>${state.summon.last.improvedIVs ? `${t("summon.ivUpgraded")} · ` : ""}${state.summon.last.starUp ? t("summon.starUp") : ""}</p>
     </article>` : `<p class="empty-state">${t("summon.none")}</p>`;
+  const summonControl = purchaseControl(t("summon.one"), HERO_SUMMON_COST, "crystals");
   elements.view.innerHTML = `
     ${viewHeader(t("eyebrow.summon"), "view.summonTitle", "view.summonDesc")}
     <section class="summon-layout">
@@ -436,13 +458,16 @@ function renderSummon() {
         <div class="pity-number"><span>${t("summon.pity")}</span><strong>${state.summon.pity} / 100</strong></div>
         <div class="meter large"><span style="width:${percent(state.summon.pity)}"></span></div>
         <div class="odds-row">${Object.entries(SUMMON_RATES).map(([rarity, rate]) => `<span class="rarity-${rarity}">${gameTerm("rarity", rarity, language()).toUpperCase()} ${(rate * 100).toFixed(0)}%</span>`).join("")}</div>
-        <button class="primary-action wide" data-action="summon-hero" ${state.resources.crystals < HERO_SUMMON_COST ? "disabled" : ""}>${t("summon.one")}</button>
+        <button class="primary-action purchase-action wide" data-action="summon-hero" ${summonControl.attributes}>${summonControl.content}</button>
       </div>
       <div><p class="panel-label">${t("summon.result")}</p>${lastMarkup}</div>
     </section>`;
 }
 
 function renderMarket() {
+  const rerollControl = purchaseControl(t("market.reroll"), SHOP_REROLL_COST, "gold");
+  const craftControl = purchaseControl(t("market.craft"), EQUIPMENT_CRAFT_COST, "ore");
+  const equipmentSummonControl = purchaseControl(t("market.summonEquipment"), EQUIPMENT_SUMMON_COST, "gold");
   elements.view.innerHTML = `
     ${viewHeader(t("eyebrow.market"), "view.marketTitle", "view.marketDesc")}
     <h3 class="section-title">${t("market.upgrades")}</h3>
@@ -451,22 +476,27 @@ function renderMarket() {
         const copy = localizeEntity(upgrade, "upgrade", language());
         const level = state.shop.upgrades[upgrade.id] ?? 0;
         const cost = upgradeCost(state, upgrade.id);
-        return `<article class="data-card"><div class="card-topline"><span>${gameTerm("currency", upgrade.currency, language()).toUpperCase()}</span><span>${t("common.levelShort")} ${level}/${upgrade.maxLevel}</span></div><h3>${escapeHtml(copy.name)}</h3><p>${escapeHtml(copy.description)}</p><button class="small-action" data-action="buy-upgrade" data-id="${upgrade.id}" ${level >= upgrade.maxLevel ? "disabled" : ""}>${formatNumber(cost)} ${gameTerm("currency", upgrade.currency, language()).toUpperCase()}</button></article>`;
+        const maxed = level >= upgrade.maxLevel;
+        const upgradeControl = maxed
+          ? { attributes: `disabled title="${escapeHtml(t("reason.max"))}"`, content: `<span class="action-label">${t("market.maxLevel")}</span>` }
+          : purchaseControl(t("market.buyUpgrade"), cost, upgrade.currency);
+        return `<article class="data-card"><div class="card-topline"><span>${gameTerm("currency", upgrade.currency, language()).toUpperCase()}</span><span>${t("common.levelShort")} ${level}/${upgrade.maxLevel}</span></div><h3>${escapeHtml(copy.name)}</h3><p>${escapeHtml(copy.description)}</p><button class="small-action purchase-action" data-action="buy-upgrade" data-id="${upgrade.id}" ${upgradeControl.attributes}>${upgradeControl.content}</button></article>`;
       }).join("")}
     </section>
-    <div class="section-heading"><h3 class="section-title">${t("market.rotatingEquipment")}</h3><button class="text-button" data-action="reroll-shop">${t("market.reroll")}</button></div>
+    <div class="section-heading"><h3 class="section-title">${t("market.rotatingEquipment")}</h3><button class="text-button purchase-action" data-action="reroll-shop" ${rerollControl.attributes}>${rerollControl.content}</button></div>
     <section class="data-grid">
-      ${state.shop.rotation.map((id) => EQUIPMENT.find((item) => item.id === id)).filter(Boolean).map((item) => { const copy = localizeEntity(item, "equipment", language()); return `<article class="data-card rarity-${item.rarity}"><div class="card-topline"><span>${gameTerm("rarity", item.rarity, language()).toUpperCase()}</span><span>${gameTerm("element", item.element, language()).toUpperCase()}</span></div><h3>${escapeHtml(copy.name)}</h3><p>+${item.attack} ${gameTerm("stat", "attack", language())} · ${escapeHtml(copy.passive)}</p><button class="small-action" data-action="buy-equipment" data-id="${item.id}">${item.cost} ${gameTerm("currency", "gold", language()).toUpperCase()}</button></article>`; }).join("")}
+      ${state.shop.rotation.map((id) => EQUIPMENT.find((item) => item.id === id)).filter(Boolean).map((item) => { const copy = localizeEntity(item, "equipment", language()); const buyControl = purchaseControl(t("market.buyEquipment"), item.cost, "gold"); return `<article class="data-card rarity-${item.rarity}"><div class="card-topline"><span>${gameTerm("rarity", item.rarity, language()).toUpperCase()}</span><span>${gameTerm("element", item.element, language()).toUpperCase()}</span></div><h3>${escapeHtml(copy.name)}</h3><p>+${item.attack} ${gameTerm("stat", "attack", language())} · ${escapeHtml(copy.passive)}</p><button class="small-action purchase-action" data-action="buy-equipment" data-id="${item.id}" ${buyControl.attributes}>${buyControl.content}</button></article>`; }).join("")}
     </section>
-    <div class="action-row spaced"><button class="secondary-action" data-action="craft-equipment">${t("market.craft")}</button><button class="secondary-action" data-action="summon-equipment">${t("market.summonEquipment")}</button></div>
+    <div class="action-row spaced"><button class="secondary-action purchase-action" data-action="craft-equipment" ${craftControl.attributes}>${craftControl.content}</button><button class="secondary-action purchase-action" data-action="summon-equipment" ${equipmentSummonControl.attributes}>${equipmentSummonControl.content}</button></div>
     <h3 class="section-title">${t("market.inventory")}</h3>
     <section class="inventory-list">${state.equipment.inventory.map((entry) => { const item = EQUIPMENT.find((candidate) => candidate.id === entry.id); const copy = localizeEntity(item, "equipment", language()); return `<span>${escapeHtml(copy?.name ?? entry.id)} · ${"★".repeat(entry.stars)}${entry.stars === 5 ? ` · ${t("combat.passive").toUpperCase()}` : ""}</span>`; }).join("")}</section>`;
 }
 
 function renderPets() {
+  const petSummonControl = purchaseControl(t("pets.summon"), PET_SUMMON_COST, "crystals");
   elements.view.innerHTML = `
     ${viewHeader(t("eyebrow.pets"), "view.petsTitle", "view.petsDesc")}
-    <section class="combat-card pet-console"><div class="pity-number"><span>${t("pets.pity")}</span><strong>${state.pets.pity} / 50</strong></div><button class="primary-action" data-action="summon-pet" ${state.resources.crystals < PET_SUMMON_COST ? "disabled" : ""}>${t("pets.summon")}</button></section>
+    <section class="combat-card pet-console"><div class="pity-number"><span>${t("pets.pity")}</span><strong>${state.pets.pity} / 50</strong></div><button class="primary-action purchase-action" data-action="summon-pet" ${petSummonControl.attributes}>${petSummonControl.content}</button></section>
     <section class="data-grid">
       ${PETS.map((pet) => {
         const copy = localizeEntity(pet, "pet", language());
@@ -692,13 +722,15 @@ function performAction(action, target) {
   else if (action === "collect-ore") showToast(`+${collectOre(state)} ${gameTerm("currency", "ore", language())}`);
   else if (action === "expand-storage") {
     const result = expandMineStorage(state);
-    if (!result.ok) showToast(language() === "pt" ? "Ouro insuficiente." : "Not enough gold.");
+    showToast(result.ok
+      ? t("mining.expanded", { capacity: formatNumber(state.mining.storageCap) })
+      : t("action.unavailableReason", { reason: t("reason.gold") }));
   } else if (action === "buy-upgrade") {
     const result = buyUpgrade(state, id);
     showToast(result.ok ? t("market.upgradeLevel", { level: result.level }) : t("action.unavailableReason", { reason: t(`reason.${result.reason}`) }));
   } else if (action === "reroll-shop") {
     const result = rerollShop(state);
-    if (!result.ok) showToast(language() === "pt" ? "Ouro insuficiente." : "Not enough gold.");
+    showToast(result.ok ? t("market.rerolled") : t("action.unavailableReason", { reason: t("reason.gold") }));
   } else if (action === "buy-equipment") {
     const result = buyShopEquipment(state, id);
     showToast(result.ok ? t("market.equipmentAcquired") : t("action.unavailableReason", { reason: t(`reason.${result.reason}`) }));

@@ -29,6 +29,7 @@ As decisões de desenvolvimento seguem os [princípios do jogo](GAME_DESIGN.md):
 - Combate automático em andares com hordas de 20 a 50 inimigos; os 10 primeiros formam um tutorial de aproximadamente 5 minutos.
 - Depois do primeiro boss, vida, tamanho das hordas e recompensas passam a escalar; 2× libera no andar 10 e 3× no andar 20, sem aumentar ganhos offline.
 - Interface totalmente separada entre inglês e português; novas campanhas começam em inglês.
+- Toda ação de compra exibe nome, custo e moeda; controles sem saldo ficam bloqueados e informam quanto falta.
 - Batalha textual ATB com HP, turno, estado e última ação de cada herói.
 - IA por função: DPS ataca, Tank protege, Healer cura/revive, Support fortalece e Controller enfraquece.
 - Inimigos atacam a formação, podem causar KO e obrigar um reagrupamento.

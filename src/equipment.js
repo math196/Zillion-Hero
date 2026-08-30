@@ -1,5 +1,7 @@
 import { EQUIPMENT } from "./gameData.js";
 
+export const EQUIPMENT_SUMMON_COST = 100;
+
 export function getEquipmentTemplate(id) {
   return EQUIPMENT.find((item) => item.id === id) ?? null;
 }
@@ -36,9 +38,8 @@ export function equipHero(state, heroId, equipmentId) {
 }
 
 export function summonEquipment(state, random = Math.random) {
-  const cost = 100;
+  const cost = EQUIPMENT_SUMMON_COST;
   if (state.resources.gold < cost) return { ok: false, reason: "gold" };
   state.resources.gold -= cost;
   return grantEquipment(state, rollEquipment(random).id);
 }
-

@@ -682,6 +682,49 @@ button:disabled {
   opacity: 0.42;
 }
 
+.purchase-action {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 150px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.purchase-action .action-label {
+  font-weight: 800;
+}
+
+.purchase-action .action-cost {
+  color: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.purchase-action .action-cost.insufficient {
+  color: var(--danger);
+  opacity: 1;
+}
+
+.purchase-action .action-cost.unavailable {
+  color: var(--warning);
+  opacity: 1;
+}
+
+.purchase-action:disabled {
+  filter: none;
+  opacity: 0.78;
+}
+
+.primary-action.purchase-action:disabled {
+  border-color: var(--line-bright);
+  background: transparent;
+  color: var(--muted);
+}
+
 .danger-tag {
   border-color: var(--danger);
   color: var(--danger);
@@ -1384,4 +1427,3 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
-
