@@ -351,6 +351,54 @@ h2 {
   font-size: clamp(1.1rem, 2vw, 1.45rem);
 }
 
+.combat-status {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  text-align: right;
+}
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.speed-control .micro-label {
+  margin-right: 4px;
+}
+
+.speed-button {
+  min-width: 48px;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.speed-button:hover:not(:disabled),
+.speed-button.active {
+  border-color: var(--accent);
+  background: rgb(216 255 102 / 10%);
+  color: var(--accent);
+}
+
+.speed-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.speed-unlock-hint {
+  max-width: 280px;
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
 .tag {
   padding: 6px 9px;
   border: 1px solid var(--accent-dim);
@@ -1260,6 +1308,16 @@ button:disabled {
 
   .health-row {
     grid-template-columns: 72px 1fr;
+  }
+
+  .combat-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .combat-status {
+    justify-items: start;
+    text-align: left;
   }
 
   .health-row strong {

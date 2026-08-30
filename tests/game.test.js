@@ -7,6 +7,7 @@ import { startDungeon } from "../src/dungeons.js";
 import { HEROES } from "../src/heroesData.js";
 import { activeTeamLimit, calculateHeroStats, createHeroInstance, summonHero, toggleTeamHero } from "../src/heroes.js";
 import { enemiesInFloor } from "../src/gameData.js";
+import { currentCombatSpeed, isCombatSpeedUnlocked, scaledCombatElapsed, setCombatSpeed } from "../src/gameSpeed.js";
 import { collectOre, tickMining } from "../src/mining.js";
 import { createInitialState } from "../src/state.js";
 import { isSystemUnlocked, syncProgression } from "../src/progression.js";
@@ -123,6 +124,24 @@ test("the first floor progresses quickly while enemies still fight back", () => 
   assert.ok(elapsed >= 45 && elapsed <= 120, `first floor took ${elapsed}s`);
   assert.ok(enemyActions > 0, "enemies must act before the floor is cleared");
   assert.ok(heals > 0, "the healer must have a reason to act during the floor");
+});
+
+test("combat speed unlocks through progress and never accelerates offline time", () => {
+  const state = createInitialState();
+  assert.equal(currentCombatSpeed(state), 1);
+  assert.equal(isCombatSpeedUnlocked(state, 2), false);
+  assert.equal(setCombatSpeed(state, 2).reason, "locked");
+
+  state.player.highestFloor = 6;
+  assert.equal(isCombatSpeedUnlocked(state, 2), true);
+  assert.equal(setCombatSpeed(state, 2).ok, true);
+  assert.equal(scaledCombatElapsed(state, 0.5), 1);
+  assert.equal(scaledCombatElapsed(state, 30, { offline: true }), 30);
+
+  state.player.bossesDefeated = 1;
+  assert.equal(isCombatSpeedUnlocked(state, 3), true);
+  assert.equal(setCombatSpeed(state, 3).ok, true);
+  assert.equal(scaledCombatElapsed(state, 0.5), 1.5);
 });
 
 test("floor 10 transitions from horde to boss and then to floor 11", () => {

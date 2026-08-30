@@ -1,4 +1,5 @@
 import { GAME_VERSION, enemiesInFloor } from "./gameData.js";
+import { currentCombatSpeed } from "./gameSpeed.js";
 import { activeTeamLimit, createStarterCollection } from "./heroes.js";
 import { createProgressionState, normalizeProgression } from "./progression.js";
 
@@ -57,6 +58,7 @@ export function createInitialState(now = Date.now()) {
       healingDone: 0,
       party: {},
       paused: false,
+      speed: 1,
       activeEffects: [],
       lastFloorReward: null,
     },
@@ -118,6 +120,7 @@ export function normalizeState(raw, now = Date.now()) {
   };
   state.activeTeam = state.activeTeam.filter((id) => state.collection[String(id)]).slice(0, activeTeamLimit(state));
   if (state.activeTeam.length === 0) state.activeTeam = [Number(Object.keys(state.collection)[0] ?? 105)];
+  state.combat.speed = currentCombatSpeed(state);
   state.version = base.version;
   return state;
 }

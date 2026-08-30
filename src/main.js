@@ -3,6 +3,7 @@ import { ensureEnemy, manualHeal, manualStrike, partySnapshot, teamSurvivalStats
 import { abandonDungeon, startDungeon, tickDungeon } from "./dungeons.js";
 import { equipHero, summonEquipment } from "./equipment.js";
 import { DUNGEONS, EQUIPMENT, PETS, SHOP_UPGRADES, areaForFloor } from "./gameData.js";
+import { COMBAT_SPEEDS, combatSpeedRequirementKey, currentCombatSpeed, isCombatSpeedUnlocked, scaledCombatElapsed, setCombatSpeed } from "./gameSpeed.js";
 import {
   HERO_SUMMON_COST,
   MAX_ACTIVE_HEROES,
@@ -107,10 +108,18 @@ function describeEvents(events) {
         ? `Andar ${event.floor} concluído: +${reward.gold} ouro, +${reward.ore} minério, +${reward.crystals} cristais.`
         : `Floor ${event.floor} cleared: +${reward.gold} gold, +${reward.ore} ore, +${reward.crystals} crystals.`, "success");
       if (reward.loot?.item) addLog(`${language() === "pt" ? "Loot" : "Loot"}: ${reward.loot.item.name}.`, "loot");
+      if (event.floor === 5) {
+        addLog(t("combat.speedUnlocked", { speed: 2 }), "success");
+        showToast(t("combat.speedUnlocked", { speed: 2 }));
+      }
     } else if (event.type === "bossEntered") {
       addLog(`${event.name}: “${event.quote}”`, "boss");
     } else if (event.type === "bossDefeated") {
       addLog(language() === "pt" ? `${event.name} foi derrotado no andar ${event.floor}.` : `${event.name} was defeated on floor ${event.floor}.`, "success");
+      if (event.floor === 10) {
+        addLog(t("combat.speedUnlocked", { speed: 3 }), "success");
+        showToast(t("combat.speedUnlocked", { speed: 3 }));
+      }
     } else if (event.type === "bossSkill") {
       addLog(`${event.boss} — ${event.ability}.`, "boss");
     } else if (event.type === "skill") {
@@ -178,6 +187,18 @@ function renderCombat() {
   const survival = teamSurvivalStats(state);
   const partyHpPercent = survival.maxHp ? survival.hp / survival.maxHp * 100 : 0;
   const recovering = state.combat.recovering > 0;
+  const selectedSpeed = currentCombatSpeed(state);
+  const speedMarkup = COMBAT_SPEEDS.map((speed) => {
+    const unlocked = isCombatSpeedUnlocked(state, speed);
+    const requirementKey = combatSpeedRequirementKey(speed);
+    const title = unlocked || !requirementKey ? "" : t(requirementKey);
+    return `<button class="speed-button ${selectedSpeed === speed ? "active" : ""}" type="button" data-action="set-combat-speed" data-speed="${speed}" aria-pressed="${selectedSpeed === speed}" ${unlocked ? "" : "disabled"} title="${escapeHtml(title)}">${unlocked ? "" : "🔒 "}${speed}×</button>`;
+  }).join("");
+  const nextSpeedHint = !isCombatSpeedUnlocked(state, 2)
+    ? t("combat.speed2Requirement")
+    : !isCombatSpeedUnlocked(state, 3)
+      ? t("combat.speed3Requirement")
+      : t("combat.allSpeedsUnlocked");
   const effectMarkup = state.combat.activeEffects.length
     ? state.combat.activeEffects.slice(0, 10).map((effect) => `<span class="effect-chip ${effect.target}">${escapeHtml(effect.stat)} ${formatEffectPercent(effect.multiplier)} · ${Math.ceil(effect.remaining)}s</span>`).join("")
     : `<span class="empty-inline">${language() === "pt" ? "Nenhum efeito temporário." : "No temporary effects."}</span>`;
@@ -209,7 +230,11 @@ function renderCombat() {
           <span class="micro-label">${t("combat.target")} // ${enemy.type.toUpperCase()}</span>
           <h3>${escapeHtml(enemy.name)}</h3>
         </div>
-        <span class="tag ${enemy.type === "boss" || recovering ? "danger-tag" : ""}">${recovering ? `${language() === "pt" ? "REAGRUPANDO" : "REGROUPING"} ${state.combat.recovering.toFixed(1)}s` : state.combat.paused ? t("combat.paused") : "AUTO ATB"}</span>
+        <div class="combat-status">
+          <span class="tag ${enemy.type === "boss" || recovering ? "danger-tag" : ""}">${recovering ? `${language() === "pt" ? "REAGRUPANDO" : "REGROUPING"} ${state.combat.recovering.toFixed(1)}s` : state.combat.paused ? t("combat.paused") : `AUTO ATB · ${selectedSpeed}×`}</span>
+          <div class="speed-control" role="group" aria-label="${escapeHtml(t("combat.speed"))}"><span class="micro-label">${t("combat.speed")}</span>${speedMarkup}</div>
+          <small class="speed-unlock-hint">${escapeHtml(nextSpeedHint)}</small>
+        </div>
       </div>
 
       <div class="health-row">
@@ -610,6 +635,11 @@ function persist(showStatus = false) {
 function performAction(action, target) {
   const id = target.dataset.id;
   if (action === "toggle-pause") state.combat.paused = !state.combat.paused;
+  else if (action === "set-combat-speed") {
+    const result = setCombatSpeed(state, Number(target.dataset.speed));
+    const requirementKey = combatSpeedRequirementKey(Number(target.dataset.speed));
+    showToast(result.ok ? t("combat.speedSelected", { speed: result.speed }) : t(requirementKey ?? "combat.speed2Requirement"));
+  }
   else if (action === "manual-strike") {
     const result = manualStrike(state);
     describeEvents(result.events);
@@ -801,7 +831,7 @@ let previousTime = performance.now();
 function loop(currentTime) {
   const elapsed = Math.min(2, Math.max(0, (currentTime - previousTime) / 1000));
   previousTime = currentTime;
-  describeEvents(tickCombat(state, elapsed));
+  describeEvents(tickCombat(state, scaledCombatElapsed(state, elapsed)));
   describeEvents(tickDungeon(state, elapsed));
   if (isSystemUnlocked(state, "mining")) tickMining(state, elapsed);
   const unlocked = checkUnlocks();
